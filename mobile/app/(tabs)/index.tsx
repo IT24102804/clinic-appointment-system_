@@ -1,98 +1,243 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { AppButton } from "@/components/ui/app-button";
+import { AppCard } from "@/components/ui/app-card";
+import { PageHeader } from "@/components/ui/page-header";
+import { AppScreen } from "@/components/ui/app-screen";
+import { StatePanel } from "@/components/ui/state-panel";
+import { AppColors } from "@/constants/design";
+import { listPrescriptions } from "@/services/prescriptions";
+import { Prescription } from "@/types/prescription";
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const router = useRouter();
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  const summary = useMemo(() => {
+    const issued = prescriptions.filter((item) => item.status === "issued").length;
+    const drafts = prescriptions.filter((item) => item.status === "draft").length;
+    const withAttachments = prescriptions.filter((item) => item.attachmentUrl).length;
+
+    return {
+      total: prescriptions.length,
+      issued,
+      drafts,
+      withAttachments,
+    };
+  }, [prescriptions]);
+
+  const loadHomeData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await listPrescriptions();
+      setPrescriptions(data);
+      setError(null);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Unable to load the dashboard.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadHomeData();
+    }, [loadHomeData])
+  );
+
+  return (
+    <AppScreen scroll contentContainerStyle={styles.screen}>
+      <PageHeader
+        tone="hero"
+        eyebrow="Daily workspace"
+        title="Clinic dashboard"
+        subtitle="Move from check-in to follow-up with one calm mobile flow for appointments, prescriptions, and supporting records."
+      />
+
+      <View style={styles.actionRow}>
+        <AppButton label="Create prescription" onPress={() => router.push("/prescriptions/new")} />
+        <AppButton label="Browse modules" onPress={() => router.push("/(tabs)/more")} variant="secondary" />
+      </View>
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Start a task</Text>
+        <Text style={styles.sectionSubtitle}>
+          Use the same simple flow staff-friendly apps use: begin with the visit, handle treatment, then open supporting modules only when needed.
+        </Text>
+      </View>
+
+      <View style={styles.quickGrid}>
+        <Pressable onPress={() => router.push("/(tabs)/appointments")} style={styles.quickLink}>
+          <AppCard style={styles.quickCard}>
+            <Text style={styles.quickEyebrow}>Visit flow</Text>
+            <Text style={styles.quickTitle}>Appointments</Text>
+            <Text style={styles.quickText}>Review bookings, reschedule visits, and keep the day moving on time.</Text>
+          </AppCard>
+        </Pressable>
+
+        <Pressable onPress={() => router.push("/(tabs)/prescriptions")} style={styles.quickLink}>
+          <AppCard style={styles.quickCard}>
+            <Text style={styles.quickEyebrow}>Clinical work</Text>
+            <Text style={styles.quickTitle}>Prescriptions</Text>
+            <Text style={styles.quickText}>Create treatment instructions, manage medicines, and attach PDFs or images.</Text>
+          </AppCard>
+        </Pressable>
+
+        <Pressable onPress={() => router.push("/(tabs)/more")} style={styles.quickLink}>
+          <AppCard style={styles.quickCard}>
+            <Text style={styles.quickEyebrow}>Support tools</Text>
+            <Text style={styles.quickTitle}>Patients, billing & records</Text>
+            <Text style={styles.quickText}>Jump into people, billing, doctor, and record modules from one shared workspace.</Text>
+          </AppCard>
+        </Pressable>
+      </View>
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Prescription snapshot</Text>
+        <Text style={styles.sectionSubtitle}>
+          This live section keeps the dashboard practical. It shows what is waiting, what is complete, and how much documentation is attached right now.
+        </Text>
+      </View>
+
+      {loading ? (
+        <StatePanel loading message="Loading the latest prescription activity..." />
+      ) : error ? (
+        <StatePanel
+          title="Dashboard unavailable"
+          message={error}
+          variant="error"
+          actionLabel="Retry dashboard"
+          onAction={() => void loadHomeData()}
+        />
+      ) : (
+        <View style={styles.snapshotStack}>
+          <AppCard style={styles.highlightCard}>
+            <Text style={styles.highlightEyebrow}>Live now</Text>
+            <Text style={styles.highlightTitle}>{summary.drafts} drafts need review</Text>
+            <Text style={styles.highlightText}>
+              Open the prescription queue to finish drafts, issue medication instructions, and keep the treatment flow clear.
+            </Text>
+          </AppCard>
+
+          <View style={styles.metricsGrid}>
+            <AppCard style={styles.metricCard}>
+              <Text style={styles.metricValue}>{summary.total}</Text>
+              <Text style={styles.metricLabel}>Total prescriptions</Text>
+            </AppCard>
+            <AppCard style={styles.metricCard}>
+              <Text style={styles.metricValue}>{summary.issued}</Text>
+              <Text style={styles.metricLabel}>Issued records</Text>
+            </AppCard>
+            <AppCard style={styles.metricCard}>
+              <Text style={styles.metricValue}>{summary.drafts}</Text>
+              <Text style={styles.metricLabel}>Draft records</Text>
+            </AppCard>
+            <AppCard style={styles.metricCard}>
+              <Text style={styles.metricValue}>{summary.withAttachments}</Text>
+              <Text style={styles.metricLabel}>With attachments</Text>
+            </AppCard>
+          </View>
+        </View>
+      )}
+    </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  screen: {
+    gap: 18,
+  },
+  actionRow: {
+    gap: 12,
+  },
+  sectionHeader: {
+    gap: 6,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: AppColors.text,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: AppColors.textMuted,
+  },
+  snapshotStack: {
+    gap: 12,
+  },
+  highlightCard: {
+    padding: 18,
+    gap: 8,
+    backgroundColor: AppColors.accentSoft,
+    borderColor: "#c5e2eb",
+  },
+  highlightEyebrow: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    color: AppColors.accent,
+  },
+  highlightTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: AppColors.text,
+  },
+  highlightText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: AppColors.textMuted,
+  },
+  quickGrid: {
+    gap: 12,
+  },
+  quickLink: {
+    width: "100%",
+  },
+  quickCard: {
+    padding: 18,
     gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  quickEyebrow: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    color: AppColors.accent,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  quickTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: AppColors.text,
+  },
+  quickText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: AppColors.textMuted,
+  },
+  metricsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  metricCard: {
+    width: "47%",
+    padding: 18,
+    gap: 6,
+  },
+  metricValue: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: AppColors.text,
+  },
+  metricLabel: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppColors.textMuted,
   },
 });
