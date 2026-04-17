@@ -1,0 +1,94 @@
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
+import { FlatList, StyleSheet, Text } from "react-native";
+
+import { AppButton } from "@/components/ui/app-button";
+import { AppCard } from "@/components/ui/app-card";
+import { PageHeader } from "@/components/ui/page-header";
+import { AppScreen } from "@/components/ui/app-screen";
+import { StatePanel } from "@/components/ui/state-panel";
+import { AppColors } from "@/constants/design";
+import { listTODOEntities } from "@/services/TODO_service";
+
+type TODOEntity = {
+  _id: string;
+  name: string;
+  status?: string;
+};
+
+export default function TODOListScreen() {
+  const router = useRouter();
+  const [items, setItems] = useState<TODOEntity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadItems = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await listTODOEntities();
+      setItems(data);
+      setError(null);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Unable to load records.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadItems();
+    }, [loadItems])
+  );
+
+  return (
+    <AppScreen style={styles.screen}>
+      <PageHeader title="TODO module title" subtitle="Replace this with the actual module purpose." />
+      <AppButton label="Create record" onPress={() => router.push("/TODO/new" as any)} />
+
+      {loading ? (
+        <StatePanel loading message="Loading records..." />
+      ) : error ? (
+        <StatePanel title="Module unavailable" message={error} variant="error" actionLabel="Retry" onAction={() => void loadItems()} />
+      ) : items.length === 0 ? (
+        <StatePanel title="No records yet" message="Create the first record for this module." />
+      ) : (
+        <FlatList
+          data={items}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={styles.listContent}
+          renderItem={({ item }) => (
+            <AppCard style={styles.card}>
+              <Text style={styles.cardTitle}>{item.name}</Text>
+              <Text style={styles.cardMeta}>Status: {item.status || "active"}</Text>
+              <AppButton label="Open details" onPress={() => router.push({ pathname: "/TODO/[id]", params: { id: item._id } } as any)} variant="secondary" />
+            </AppCard>
+          )}
+        />
+      )}
+    </AppScreen>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    gap: 16,
+  },
+  listContent: {
+    gap: 12,
+    paddingBottom: 24,
+  },
+  card: {
+    padding: 18,
+    gap: 8,
+  },
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: AppColors.text,
+  },
+  cardMeta: {
+    fontSize: 15,
+    color: AppColors.textMuted,
+  },
+});

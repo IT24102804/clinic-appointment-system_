@@ -1,0 +1,18 @@
+import { useState } from "react";
+
+import { PageHeader } from "@/components/ui/page-header";
+import { AppScreen } from "@/components/ui/app-screen";
+import { AppInput } from "@/components/ui/app-input";
+import { AppButton } from "@/components/ui/app-button";
+
+export default function TODOFormScreen() {
+  const [name, setName] = useState("");
+
+  return (
+    <AppScreen scroll contentContainerStyle={{ gap: 16 }}>
+      <PageHeader title="TODO form title" subtitle="Replace these fields with the real entity fields for your module." />
+      <AppInput placeholder="Name" value={name} onChangeText={setName} />
+      <AppButton label="Save record" onPress={() => {}} />
+    </AppScreen>
+  );
+}

@@ -1,0 +1,19 @@
+import { useLocalSearchParams } from "expo-router";
+
+import { AppCard } from "@/components/ui/app-card";
+import { PageHeader } from "@/components/ui/page-header";
+import { AppScreen } from "@/components/ui/app-screen";
+
+export default function TODODetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+
+  return (
+    <AppScreen scroll contentContainerStyle={{ gap: 16 }}>
+      <PageHeader title="TODO detail title" subtitle={`Record ID: ${id || "unknown"}`} />
+
+      <AppCard style={{ padding: 18, gap: 10 }}>
+        Replace this screen with real detail content for your module.
+      </AppCard>
+    </AppScreen>
+  );
+}

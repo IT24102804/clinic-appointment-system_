@@ -1,0 +1,58 @@
+import { toApiUrl } from "@/constants/api";
+
+type ApiEnvelope<T> = {
+  success: boolean;
+  message: string;
+  data: T;
+};
+
+async function request<T>(path: string, init?: RequestInit) {
+  const response = await fetch(toApiUrl(path), {
+    ...init,
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  const payload = (await response.json().catch(() => null)) as ApiEnvelope<T> | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.message || "Request failed.");
+  }
+
+  if (!payload) {
+    throw new Error("The server returned an empty response.");
+  }
+
+  return payload.data;
+}
+
+export async function listTODOEntities() {
+  return request<unknown[]>("/api/TODO_ROUTE_NAME");
+}
+
+export async function getTODOEntity(id: string) {
+  return request<unknown>(`/api/TODO_ROUTE_NAME/${id}`);
+}
+
+export async function createTODOEntity(payload: Record<string, unknown>) {
+  return request<unknown>("/api/TODO_ROUTE_NAME", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateTODOEntity(id: string, payload: Record<string, unknown>) {
+  return request<unknown>(`/api/TODO_ROUTE_NAME/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteTODOEntity(id: string) {
+  return request<{ id: string }>(`/api/TODO_ROUTE_NAME/${id}`, {
+    method: "DELETE",
+  });
+}
