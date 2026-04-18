@@ -31,6 +31,7 @@ It already demonstrates:
 - how controller logic maps to CRUD operations
 - how mobile screens call the backend
 - how a module fits into the shared app shell
+- how one module connects mobile -> API -> MongoDB without inventing a second app structure
 
 ## Data shape
 Prescription uses:
@@ -51,3 +52,24 @@ Prescription uses:
 - keep mobile fetch logic in a service file
 - keep forms reusable where possible
 - use shared UI components instead of module-specific styling systems
+
+## What to study first
+Study the reference in this order:
+1. `backend/src/models/Prescription.js`
+2. `backend/src/validators/prescriptionValidators.js`
+3. `backend/src/controllers/prescriptionController.js`
+4. `backend/src/routes/prescriptionRoutes.js`
+5. `mobile/services/prescriptions.ts`
+6. `mobile/components/prescription-form.tsx`
+7. `mobile/app/(tabs)/prescriptions.tsx`
+8. `mobile/app/prescriptions/new.tsx`
+9. `mobile/app/prescriptions/[id].tsx`
+10. `mobile/app/prescriptions/[id]/edit.tsx`
+
+## What should be copied from this module
+- backend naming pattern
+- validator/controller/route separation
+- service-based fetch logic
+- list/detail/create-edit screen flow
+- reusable form structure
+- use of shared UI components instead of custom module styling

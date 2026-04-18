@@ -12,3 +12,10 @@ Rules:
 - keep the shared response envelope: `success`, `message`, `data`
 - use the shared validation middleware
 - do not mount routes directly in `src/app.js`; ask the integration lead to do that
+
+Example destinations:
+- Patient: `models/Patient.js`, `validators/patientValidators.js`, `controllers/patientController.js`, `routes/patientRoutes.js`
+- Doctor: `models/Doctor.js`, `validators/doctorValidators.js`, `controllers/doctorController.js`, `routes/doctorRoutes.js`
+- Appointment: `models/Appointment.js`, `validators/appointmentValidators.js`, `controllers/appointmentController.js`, `routes/appointmentRoutes.js`
+- Billing: `models/Billing.js`, `validators/billingValidators.js`, `controllers/billingController.js`, `routes/billingRoutes.js`
+- Medical Record: `models/MedicalRecord.js`, `validators/medicalRecordValidators.js`, `controllers/medicalRecordController.js`, `routes/medicalRecordRoutes.js`
