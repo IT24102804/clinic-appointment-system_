@@ -1,10 +1,12 @@
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppCard } from "@/components/ui/app-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { AppScreen } from "@/components/ui/app-screen";
 import { AppColors } from "@/constants/design";
+import { useAuth } from "@/context/AuthContext";
 
 const peopleModules = [
   {
@@ -38,6 +40,8 @@ const adminModules = [
 
 export default function MoreScreen() {
   const router = useRouter();
+  const { logout } = useAuth();
+  const [loggingOut, setLoggingOut] = useState(false);
 
   return (
     <AppScreen scroll contentContainerStyle={styles.screen}>
@@ -53,6 +57,38 @@ export default function MoreScreen() {
           Friendly mobile apps keep the main journey focused, then group supporting tools in one calm place. This tab is that shared workspace.
         </Text>
       </AppCard>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Account</Text>
+        <Text style={styles.sectionSubtitle}>Review your patient profile or sign out.</Text>
+        <View style={styles.list}>
+          <Pressable onPress={() => router.push("/(patient)/profile" as any)}>
+            <AppCard style={styles.card}>
+              <Text style={styles.owner}>Account</Text>
+              <Text style={styles.title}>Profile</Text>
+              <Text style={styles.description}>View your stored patient profile details.</Text>
+            </AppCard>
+          </Pressable>
+
+          <Pressable
+            onPress={async () => {
+              if (loggingOut) return;
+              try {
+                setLoggingOut(true);
+                await logout();
+                router.replace('/' as any);
+              } finally {
+                setLoggingOut(false);
+              }
+            }}>
+            <AppCard style={styles.card}>
+              <Text style={styles.owner}>Session</Text>
+              <Text style={styles.title}>Logout</Text>
+              <Text style={styles.description}>Clear tokens and return to the login screen.</Text>
+            </AppCard>
+          </Pressable>
+        </View>
+      </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>People</Text>

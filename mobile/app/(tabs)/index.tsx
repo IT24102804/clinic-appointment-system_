@@ -1,243 +1,240 @@
-import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
+import { useAuth } from '../../context/AuthContext';
+import { AppColors } from '@/constants/design';
 
-import { AppButton } from "@/components/ui/app-button";
-import { AppCard } from "@/components/ui/app-card";
-import { PageHeader } from "@/components/ui/page-header";
-import { AppScreen } from "@/components/ui/app-screen";
-import { StatePanel } from "@/components/ui/state-panel";
-import { AppColors } from "@/constants/design";
-import { listPrescriptions } from "@/services/prescriptions";
-import { Prescription } from "@/types/prescription";
-
-export default function HomeScreen() {
-  const router = useRouter();
-  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const summary = useMemo(() => {
-    const issued = prescriptions.filter((item) => item.status === "issued").length;
-    const drafts = prescriptions.filter((item) => item.status === "draft").length;
-    const withAttachments = prescriptions.filter((item) => item.attachmentUrl).length;
-
-    return {
-      total: prescriptions.length,
-      issued,
-      drafts,
-      withAttachments,
-    };
-  }, [prescriptions]);
-
-  const loadHomeData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await listPrescriptions();
-      setPrescriptions(data);
-      setError(null);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Unable to load the dashboard.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      void loadHomeData();
-    }, [loadHomeData])
-  );
+export default function PatientHomeScreen() {
+  const { user } = useAuth();
 
   return (
-    <AppScreen scroll contentContainerStyle={styles.screen}>
-      <PageHeader
-        tone="hero"
-        eyebrow="Daily workspace"
-        title="Clinic dashboard"
-        subtitle="Move from check-in to follow-up with one calm mobile flow for appointments, prescriptions, and supporting records."
-      />
-
-      <View style={styles.actionRow}>
-        <AppButton label="Create prescription" onPress={() => router.push("/prescriptions/new")} />
-        <AppButton label="Browse modules" onPress={() => router.push("/(tabs)/more")} variant="secondary" />
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.greeting}>Hello, {user?.firstName} {user?.lastName}!</Text>
+        <Text style={styles.date}>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</Text>
       </View>
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Start a task</Text>
-        <Text style={styles.sectionSubtitle}>
-          Use the same simple flow staff-friendly apps use: begin with the visit, handle treatment, then open supporting modules only when needed.
-        </Text>
-      </View>
+      {/* Upcoming Appointments Card (placeholder) */}
+      <TouchableOpacity style={styles.card} onPress={() => router.push('/(patient)/appointments' as any)}>
+        <Text style={styles.cardTitle}>📅 Upcoming Appointments</Text>
+        <Text style={styles.cardSubtitle}>You have no upcoming appointments</Text>
+        <Text style={styles.cardLink}>View all →</Text>
+      </TouchableOpacity>
 
+      {/* Quick Actions Grid */}
+      <Text style={styles.sectionTitle}>Quick Actions</Text>
       <View style={styles.quickGrid}>
-        <Pressable onPress={() => router.push("/(tabs)/appointments")} style={styles.quickLink}>
-          <AppCard style={styles.quickCard}>
-            <Text style={styles.quickEyebrow}>Visit flow</Text>
-            <Text style={styles.quickTitle}>Appointments</Text>
-            <Text style={styles.quickText}>Review bookings, reschedule visits, and keep the day moving on time.</Text>
-          </AppCard>
-        </Pressable>
+        <TouchableOpacity style={styles.quickAction} onPress={() => router.push('/placeholders/doctors')}>
+          <Text style={styles.quickIcon}>👨‍⚕️</Text>
+          <Text style={styles.quickLabel}>Find Doctor</Text>
+        </TouchableOpacity>
 
-        <Pressable onPress={() => router.push("/(tabs)/prescriptions")} style={styles.quickLink}>
-          <AppCard style={styles.quickCard}>
-            <Text style={styles.quickEyebrow}>Clinical work</Text>
-            <Text style={styles.quickTitle}>Prescriptions</Text>
-            <Text style={styles.quickText}>Create treatment instructions, manage medicines, and attach PDFs or images.</Text>
-          </AppCard>
-        </Pressable>
+        <TouchableOpacity style={styles.quickAction} onPress={() => router.push('/(patient)/appointments' as any)}>
+          <Text style={styles.quickIcon}>📋</Text>
+          <Text style={styles.quickLabel}>My Appointments</Text>
+        </TouchableOpacity>
 
-        <Pressable onPress={() => router.push("/(tabs)/more")} style={styles.quickLink}>
-          <AppCard style={styles.quickCard}>
-            <Text style={styles.quickEyebrow}>Support tools</Text>
-            <Text style={styles.quickTitle}>Patients, billing & records</Text>
-            <Text style={styles.quickText}>Jump into people, billing, doctor, and record modules from one shared workspace.</Text>
-          </AppCard>
-        </Pressable>
+        <TouchableOpacity style={styles.quickAction} onPress={() => router.push('/placeholders/medical-records')}>
+          <Text style={styles.quickIcon}>📁</Text>
+          <Text style={styles.quickLabel}>Medical Records</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.quickAction} onPress={() => router.push('/placeholders/billing')}>
+          <Text style={styles.quickIcon}>💰</Text>
+          <Text style={styles.quickLabel}>Billing & Pay</Text>
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Prescription snapshot</Text>
-        <Text style={styles.sectionSubtitle}>
-          This live section keeps the dashboard practical. It shows what is waiting, what is complete, and how much documentation is attached right now.
-        </Text>
-      </View>
+      {/* Saved Doctors Section (placeholder) */}
+      <Text style={styles.sectionTitle}>Saved Doctors</Text>
+      <TouchableOpacity style={styles.seeAllRow} onPress={() => router.push('/placeholders/doctors')}>
+        <Text style={styles.seeAllText}>See all →</Text>
+      </TouchableOpacity>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.savedDoctorsScroll}>
+        {[1, 2, 3].map((_, index) => (
+          <TouchableOpacity key={index} style={styles.doctorCard}>
+            <Text style={styles.doctorIcon}>👨‍⚕️</Text>
+            <Text style={styles.doctorName}>Dr. Sample</Text>
+            <Text style={styles.doctorSpecialty}>Cardiologist</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
-      {loading ? (
-        <StatePanel loading message="Loading the latest prescription activity..." />
-      ) : error ? (
-        <StatePanel
-          title="Dashboard unavailable"
-          message={error}
-          variant="error"
-          actionLabel="Retry dashboard"
-          onAction={() => void loadHomeData()}
-        />
-      ) : (
-        <View style={styles.snapshotStack}>
-          <AppCard style={styles.highlightCard}>
-            <Text style={styles.highlightEyebrow}>Live now</Text>
-            <Text style={styles.highlightTitle}>{summary.drafts} drafts need review</Text>
-            <Text style={styles.highlightText}>
-              Open the prescription queue to finish drafts, issue medication instructions, and keep the treatment flow clear.
-            </Text>
-          </AppCard>
-
-          <View style={styles.metricsGrid}>
-            <AppCard style={styles.metricCard}>
-              <Text style={styles.metricValue}>{summary.total}</Text>
-              <Text style={styles.metricLabel}>Total prescriptions</Text>
-            </AppCard>
-            <AppCard style={styles.metricCard}>
-              <Text style={styles.metricValue}>{summary.issued}</Text>
-              <Text style={styles.metricLabel}>Issued records</Text>
-            </AppCard>
-            <AppCard style={styles.metricCard}>
-              <Text style={styles.metricValue}>{summary.drafts}</Text>
-              <Text style={styles.metricLabel}>Draft records</Text>
-            </AppCard>
-            <AppCard style={styles.metricCard}>
-              <Text style={styles.metricValue}>{summary.withAttachments}</Text>
-              <Text style={styles.metricLabel}>With attachments</Text>
-            </AppCard>
-          </View>
-        </View>
-      )}
-    </AppScreen>
+      {/* Recent Medical Records (placeholder) */}
+      <Text style={styles.sectionTitle}>Recent Medical Records</Text>
+      <TouchableOpacity style={styles.recordCard} onPress={() => router.push('/placeholders/medical-records')}>
+        <Text style={styles.recordName}>Complete Blood Count</Text>
+        <Text style={styles.recordDate}>June 1, 2024 • Asiri Hospital</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.recordCard} onPress={() => router.push('/placeholders/medical-records')}>
+        <Text style={styles.recordName}>ECG Report</Text>
+        <Text style={styles.recordDate}>May 15, 2024 • Nawaloka Clinic</Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    gap: 18,
+  container: {
+    flex: 1,
+    backgroundColor: '#f8f9ff',
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
-  actionRow: {
+  header: {
+    marginBottom: 24,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     gap: 12,
   },
-  sectionHeader: {
-    gap: 6,
+  headerCopy: {
+    flex: 1,
+  },
+  avatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#006b5a',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  greeting: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: AppColors.text,
+    marginBottom: 4,
+  },
+  date: {
+    fontSize: 14,
+    color: AppColors.textMuted,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: AppColors.text,
+    marginBottom: 4,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: AppColors.textMuted,
+    marginBottom: 8,
+  },
+  cardLink: {
+    fontSize: 14,
+    color: AppColors.accent,
+    fontWeight: '500',
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: "800",
+    fontWeight: 'bold',
     color: AppColors.text,
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: AppColors.textMuted,
-  },
-  snapshotStack: {
-    gap: 12,
-  },
-  highlightCard: {
-    padding: 18,
-    gap: 8,
-    backgroundColor: AppColors.accentSoft,
-    borderColor: "#c5e2eb",
-  },
-  highlightEyebrow: {
-    fontSize: 12,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    color: AppColors.accent,
-  },
-  highlightTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: AppColors.text,
-  },
-  highlightText: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: AppColors.textMuted,
+    marginBottom: 12,
   },
   quickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 24,
     gap: 12,
   },
-  quickLink: {
-    width: "100%",
+  quickAction: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    width: '22%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  quickCard: {
-    padding: 18,
-    gap: 8,
+  quickIcon: {
+    fontSize: 28,
+    marginBottom: 8,
   },
-  quickEyebrow: {
+  quickLabel: {
     fontSize: 12,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    color: AppColors.accent,
-  },
-  quickTitle: {
-    fontSize: 20,
-    fontWeight: "800",
+    fontWeight: '500',
     color: AppColors.text,
+    textAlign: 'center',
   },
-  quickText: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: AppColors.textMuted,
+  seeAllRow: {
+    alignItems: 'flex-end',
+    marginBottom: 12,
   },
-  metricsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  metricCard: {
-    width: "47%",
-    padding: 18,
-    gap: 6,
-  },
-  metricValue: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: AppColors.text,
-  },
-  metricLabel: {
+  seeAllText: {
     fontSize: 14,
-    lineHeight: 20,
+    color: AppColors.accent,
+    fontWeight: '500',
+  },
+  savedDoctorsScroll: {
+    flexDirection: 'row',
+    marginBottom: 24,
+  },
+  doctorCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    marginRight: 12,
+    alignItems: 'center',
+    width: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  doctorIcon: {
+    fontSize: 40,
+    marginBottom: 8,
+  },
+  doctorName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: AppColors.text,
+    textAlign: 'center',
+  },
+  doctorSpecialty: {
+    fontSize: 12,
+    color: AppColors.textMuted,
+    textAlign: 'center',
+  },
+  recordCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e5e9f0',
+  },
+  recordName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: AppColors.text,
+    marginBottom: 4,
+  },
+  recordDate: {
+    fontSize: 12,
     color: AppColors.textMuted,
   },
 });

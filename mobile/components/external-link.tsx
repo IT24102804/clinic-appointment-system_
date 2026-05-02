@@ -1,14 +1,18 @@
 import { Href, Link } from 'expo-router';
 import { openBrowserAsync, WebBrowserPresentationStyle } from 'expo-web-browser';
 import { type ComponentProps } from 'react';
+import { StyleSheet } from 'react-native';
 
 type Props = Omit<ComponentProps<typeof Link>, 'href'> & { href: Href & string };
 
 export function ExternalLink({ href, ...rest }: Props) {
+  const flattenedStyle = rest.style ? (StyleSheet.flatten(rest.style as any) as any) : undefined;
+
   return (
     <Link
       target="_blank"
       {...rest}
+      style={flattenedStyle}
       href={href}
       onPress={async (event) => {
         if (process.env.EXPO_OS !== 'web') {

@@ -4,15 +4,19 @@ const morgan = require("morgan");
 const path = require("path");
 
 const prescriptionRoutes = require("./routes/prescriptionRoutes");
+const authRoutes = require('./routes/authRoutes');
+const patientRoutes = require('./routes/paitentRoute');  // ✅ already imported
 
 const app = express();
 
+// ========== Basic middleware (always first) ==========
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// ========== Health check routes ==========
 app.get("/", (req, res) => {
   res.json({
     success: true,
@@ -27,8 +31,12 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// ========== API routes ==========
+app.use("/api/auth", authRoutes);
+app.use("/api/patients", patientRoutes);        // ✅ ADD THIS LINE
 app.use("/api/prescriptions", prescriptionRoutes);
 
+// ========== 404 handler ==========
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -36,6 +44,7 @@ app.use((req, res) => {
   });
 });
 
+// ========== Global error handler ==========
 app.use((error, req, res, next) => {
   const statusCode = error.statusCode || 500;
 
