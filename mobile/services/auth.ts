@@ -25,12 +25,11 @@ export type PatientRegisterPayload = {
   fullName: string;
   email: string;
   password: string;
-  age: string;
   gender: "male" | "female" | "other";
   phone: string;
   nic: string;
-  dateOfBirth?: string;
-  address?: string;
+  dateOfBirth: string;
+  address: string;
   emergencyContact?: {
     name?: string;
     phone?: string;
@@ -68,10 +67,7 @@ export async function register(payload: Required<AuthPayload>) {
 export async function registerPatient(payload: PatientRegisterPayload) {
   const session = await request<AuthResponse>("/api/auth/register-patient", {
     method: "POST",
-    body: JSON.stringify({
-      ...payload,
-      age: Number(payload.age),
-    }),
+    body: JSON.stringify(payload),
   });
   setAuthToken(session.accessToken || session.token);
   setRefreshToken(session.refreshToken);

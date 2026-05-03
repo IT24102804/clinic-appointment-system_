@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 
 const User = require("../models/User");
 const Patient = require("../models/Patient");
+const { calculateAge } = require("../utils/validationPatterns");
 
 const ACCESS_TOKEN_EXPIRES_IN = "15m";
 const REFRESH_TOKEN_DAYS = 7;
@@ -96,6 +97,8 @@ async function registerPatient(req, res) {
   const email = req.body.email.toLowerCase().trim();
   const phone = req.body.phone.trim();
   const nic = req.body.nic.trim();
+  const dateOfBirth = new Date(req.body.dateOfBirth);
+  const age = calculateAge(dateOfBirth);
 
   const existingUser = await User.findOne({ email });
 
@@ -129,13 +132,13 @@ async function registerPatient(req, res) {
   await Patient.create({
     userId: user._id,
     fullName: req.body.fullName.trim(),
-    age: Number(req.body.age),
+    age,
     gender: req.body.gender,
     phone,
     nic,
-    dateOfBirth: req.body.dateOfBirth ? new Date(req.body.dateOfBirth) : null,
+    dateOfBirth,
     email,
-    address: req.body.address?.trim() || "",
+    address: req.body.address.trim(),
     emergencyContact: {
       name: req.body.emergencyContact?.name?.trim() || "",
       phone: req.body.emergencyContact?.phone?.trim() || "",

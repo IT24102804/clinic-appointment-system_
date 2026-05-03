@@ -27,6 +27,8 @@ export const moduleConfigs = {
         ],
       },
       { key: "phone", label: "Phone", required: true },
+      { key: "dateOfBirth", label: "Date of birth", required: true, type: "date" },
+      { key: "nic", label: "NIC" },
       { key: "email", label: "Email" },
       { key: "address", label: "Address", type: "multiline" },
       {
@@ -39,7 +41,7 @@ export const moduleConfigs = {
         ],
       },
     ],
-    defaultValues: { fullName: "", age: "", gender: "female", phone: "", email: "", address: "", status: "active" },
+    defaultValues: { fullName: "", age: "", gender: "female", phone: "", dateOfBirth: "", nic: "", email: "", address: "", status: "active" },
     getCardTitle: (record) => formatValue(record.fullName),
     getCardSubtitle: (record) => `${formatValue(record.referenceId)} | ${formatValue(record.phone)} | ${formatValue(record.status)}`,
     getDetailRows: (record) => [
@@ -47,6 +49,8 @@ export const moduleConfigs = {
       { label: "Age", value: formatValue(record.age) },
       { label: "Gender", value: formatValue(record.gender) },
       { label: "Phone", value: formatValue(record.phone) },
+      { label: "Date of birth", value: formatDate(record.dateOfBirth) },
+      { label: "NIC", value: formatValue(record.nic) },
       { label: "Email", value: formatValue(record.email) },
       { label: "Address", value: formatValue(record.address) },
       { label: "Status", value: formatValue(record.status) },

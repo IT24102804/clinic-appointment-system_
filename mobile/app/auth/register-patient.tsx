@@ -14,6 +14,10 @@ import { PatientRegisterPayload } from "@/services/auth";
 import { formatDate } from "@/utils/format-record";
 
 const genderOptions: PatientRegisterPayload["gender"][] = ["female", "male", "other"];
+const STRONG_PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const NIC_PATTERN = /^([0-9]{9}[VXvx]|[0-9]{12})$/;
+const PHONE_PATTERN = /^(?:\+94|0)[0-9]{9}$/;
 
 function toDatePayload(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -26,7 +30,6 @@ export default function PatientRegisterScreen() {
     fullName: "",
     email: "",
     password: "",
-    age: "",
     gender: "female",
     phone: "",
     nic: "",
@@ -38,12 +41,68 @@ export default function PatientRegisterScreen() {
       relationship: "",
     },
   });
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function updateField<Key extends keyof PatientRegisterPayload>(key: Key, value: PatientRegisterPayload[Key]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function getAge(dateValue: string) {
+    const birthDate = new Date(dateValue);
+
+    if (Number.isNaN(birthDate.getTime())) {
+      return null;
+    }
+
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDifference = today.getMonth() - birthDate.getMonth();
+
+    if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < birthDate.getDate())) {
+      age -= 1;
+    }
+
+    return age;
+  }
+
+  function validateForm() {
+    const email = form.email.trim();
+    const phone = form.phone.trim();
+    const nic = form.nic.trim();
+    const age = getAge(form.dateOfBirth);
+
+    if (!form.fullName.trim() || !email || !form.password || !confirmPassword || !phone || !nic || !form.dateOfBirth || !form.address.trim()) {
+      return "Full name, email, password, confirm password, phone, NIC, date of birth, and address are required.";
+    }
+
+    if (!EMAIL_PATTERN.test(email)) {
+      return "Enter a valid email address.";
+    }
+
+    if (!STRONG_PASSWORD_PATTERN.test(form.password)) {
+      return "Password must be at least 8 characters and include uppercase, lowercase, number, and special character.";
+    }
+
+    if (form.password !== confirmPassword) {
+      return "Password and confirm password must match.";
+    }
+
+    if (!PHONE_PATTERN.test(phone)) {
+      return "Phone must be a valid Sri Lankan number, for example 0712345678 or +94712345678.";
+    }
+
+    if (!NIC_PATTERN.test(nic)) {
+      return "NIC must be valid, for example 961234567V or 199612345678.";
+    }
+
+    if (age === null || age < 16) {
+      return "Patient must be 16 years old or above.";
+    }
+
+    return null;
   }
 
   function updateEmergencyField(key: "name" | "phone" | "relationship", value: string) {
@@ -67,8 +126,10 @@ export default function PatientRegisterScreen() {
   }
 
   async function submit() {
-    if (!form.fullName.trim() || !form.email.trim() || !form.password.trim() || !form.phone.trim() || !form.nic.trim()) {
-      setError("Full name, email, password, phone, and NIC are required.");
+    const validationError = validateForm();
+
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
@@ -92,7 +153,7 @@ export default function PatientRegisterScreen() {
         <AppInput value={form.fullName} onChangeText={(value) => updateField("fullName", value)} placeholder="Full name" />
         <AppInput value={form.email} onChangeText={(value) => updateField("email", value)} placeholder="Email" autoCapitalize="none" keyboardType="email-address" />
         <AppInput value={form.password} onChangeText={(value) => updateField("password", value)} placeholder="Password" secureTextEntry />
-        <AppInput value={form.age} onChangeText={(value) => updateField("age", value)} placeholder="Age" keyboardType="numeric" />
+        <AppInput value={confirmPassword} onChangeText={setConfirmPassword} placeholder="Confirm password" secureTextEntry />
         <AppInput value={form.phone} onChangeText={(value) => updateField("phone", value)} placeholder="Phone" keyboardType="phone-pad" />
         <AppInput value={form.nic} onChangeText={(value) => updateField("nic", value)} placeholder="NIC" autoCapitalize="characters" />
 

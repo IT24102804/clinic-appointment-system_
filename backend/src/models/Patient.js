@@ -3,15 +3,15 @@ const { addReferenceId } = require("../utils/referenceId");
 
 const patientSchema = new mongoose.Schema(
   {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", unique: true, sparse: true, index: true },
     fullName: { type: String, required: true, trim: true },
     age: { type: Number, required: true, min: 0 },
     gender: { type: String, enum: ["male", "female", "other"], required: true },
-    phone: { type: String, required: true, trim: true },
-    nic: { type: String, trim: true, default: "" },
-    dateOfBirth: { type: Date, default: null },
+    phone: { type: String, required: true, trim: true, unique: true, index: true },
+    nic: { type: String, trim: true, unique: true, sparse: true, index: true },
+    dateOfBirth: { type: Date, required: true },
     email: { type: String, trim: true, lowercase: true, default: "" },
-    address: { type: String, trim: true, default: "" },
+    address: { type: String, trim: true, required: true },
     additionalAddresses: {
       type: [
         {

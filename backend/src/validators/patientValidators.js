@@ -17,7 +17,7 @@ const createPatientValidator = [
     .trim()
     .matches(NIC_PATTERN)
     .withMessage("nic must be a valid Sri Lankan NIC, for example 961234567V or 199612345678."),
-  body("dateOfBirth").optional({ values: "falsy" }).isISO8601().withMessage("dateOfBirth must be a valid ISO date."),
+  body("dateOfBirth").isISO8601().withMessage("dateOfBirth must be a valid ISO date."),
   body("email").optional({ values: "falsy" }).isEmail().withMessage("email must be valid."),
   body("address").optional({ values: "null" }).isString().withMessage("address must be text."),
   body("status").optional().isIn(STATUSES).withMessage(`status must be one of: ${STATUSES.join(", ")}.`),
