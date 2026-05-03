@@ -1,4 +1,7 @@
 const Doctor = require("../models/Doctor");
+const Appointment = require("../models/Appointment");
+const MedicalRecord = require("../models/MedicalRecord");
+const Prescription = require("../models/Prescription");
 const User = require("../models/User");
 const { createCrudController } = require("../utils/crudController");
 
@@ -149,9 +152,57 @@ async function deactivateDoctor(req, res) {
   });
 }
 
+async function deleteOrDeactivateDoctor(req, res) {
+  const doctor = await Doctor.findById(req.params.id);
+
+  if (!doctor) {
+    return res.status(404).json({
+      success: false,
+      message: "Doctor not found.",
+    });
+  }
+
+  const [appointmentCount, prescriptionCount, medicalRecordCount] = await Promise.all([
+    Appointment.countDocuments({ doctorId: doctor._id }),
+    Prescription.countDocuments({ doctorId: doctor._id }),
+    MedicalRecord.countDocuments({ doctorId: doctor._id }),
+  ]);
+  const hasClinicalHistory = appointmentCount > 0 || prescriptionCount > 0 || medicalRecordCount > 0;
+
+  if (hasClinicalHistory) {
+    doctor.status = "inactive";
+    doctor.availabilityStatus = "unavailable";
+    await doctor.save();
+
+    if (doctor.userId) {
+      await User.findByIdAndUpdate(doctor.userId, { status: "inactive" });
+    }
+
+    const updated = await Doctor.findById(doctor._id).lean();
+
+    return res.status(200).json({
+      success: true,
+      message: "Doctor has linked clinical records and was deactivated instead.",
+      data: updated,
+    });
+  }
+
+  if (doctor.userId) {
+    await User.findByIdAndDelete(doctor.userId);
+  }
+
+  await doctor.deleteOne();
+
+  return res.status(200).json({
+    success: true,
+    message: "Doctor deleted successfully.",
+    data: { id: req.params.id },
+  });
+}
+
 module.exports = {
   ...crudController,
   create: createDoctor,
-  remove: deactivateDoctor,
+  remove: deleteOrDeactivateDoctor,
   update: updateDoctor,
 };
