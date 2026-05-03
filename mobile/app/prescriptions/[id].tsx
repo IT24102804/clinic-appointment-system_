@@ -10,6 +10,7 @@ import { AppScreen } from "@/components/ui/app-screen";
 import { StatePanel } from "@/components/ui/state-panel";
 import { toApiUrl } from "@/constants/api";
 import { AppColors } from "@/constants/design";
+import { getAuthToken } from "@/services/api-client";
 import {
   deletePrescription,
   deletePrescriptionAttachment,
@@ -17,6 +18,7 @@ import {
   uploadPrescriptionAttachment,
 } from "@/services/prescriptions";
 import { Prescription } from "@/types/prescription";
+import { formatDateTime, formatRef, getRefId } from "@/utils/format-record";
 
 function formatDate(value?: string) {
   if (!value) {
@@ -33,6 +35,7 @@ export default function PrescriptionDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const hasToken = Boolean(getAuthToken());
 
   const absoluteAttachmentUrl = useMemo(() => {
     if (!prescription?.attachmentUrl) {
@@ -43,6 +46,12 @@ export default function PrescriptionDetailsScreen() {
   }, [prescription?.attachmentUrl]);
 
   const loadPrescription = useCallback(async () => {
+    if (!getAuthToken()) {
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     if (!id) {
       return;
     }
@@ -64,6 +73,19 @@ export default function PrescriptionDetailsScreen() {
       void loadPrescription();
     }, [loadPrescription])
   );
+
+  if (!hasToken) {
+    return (
+      <AppScreen style={styles.centeredScreen}>
+        <StatePanel
+          title="Login required"
+          message="Login with a staff account to view prescription details."
+          actionLabel="Go to login"
+          onAction={() => router.push("/auth/login")}
+        />
+      </AppScreen>
+    );
+  }
 
   async function handleUploadAttachment() {
     if (!id) {
@@ -178,9 +200,20 @@ export default function PrescriptionDetailsScreen() {
 
       <AppCard style={styles.section}>
         <Text style={styles.sectionTitle}>References</Text>
-        <Text style={styles.detailText}>Appointment: {prescription.appointmentId}</Text>
-        <Text style={styles.detailText}>Patient: {prescription.patientId}</Text>
-        <Text style={styles.detailText}>Doctor: {prescription.doctorId}</Text>
+        <Text style={styles.detailText}>Reference ID: {prescription.referenceId || "Not generated"}</Text>
+        <Text style={styles.detailText}>MongoDB ID: {prescription._id}</Text>
+        <Text style={styles.detailText}>Appointment: {formatRef(prescription.appointmentId)}</Text>
+        <Text style={styles.detailText}>Appointment ID: {getRefId(prescription.appointmentId) || "Not set"}</Text>
+        <Text style={styles.detailText}>Patient: {formatRef(prescription.patientId)}</Text>
+        <Text style={styles.detailText}>Patient ID: {getRefId(prescription.patientId) || "Not set"}</Text>
+        <Text style={styles.detailText}>Doctor: {formatRef(prescription.doctorId)}</Text>
+        <Text style={styles.detailText}>Doctor ID: {getRefId(prescription.doctorId) || "Not set"}</Text>
+      </AppCard>
+
+      <AppCard style={styles.section}>
+        <Text style={styles.sectionTitle}>Record timestamps</Text>
+        <Text style={styles.detailText}>Created at: {formatDateTime(prescription.createdAt) || "Not set"}</Text>
+        <Text style={styles.detailText}>Last updated: {formatDateTime(prescription.updatedAt) || "Not set"}</Text>
       </AppCard>
 
       <AppCard style={styles.section}>

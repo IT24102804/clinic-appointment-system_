@@ -8,8 +8,10 @@ import { PageHeader } from "@/components/ui/page-header";
 import { AppScreen } from "@/components/ui/app-screen";
 import { StatePanel } from "@/components/ui/state-panel";
 import { AppColors } from "@/constants/design";
+import { getAuthToken } from "@/services/api-client";
 import { listPrescriptions } from "@/services/prescriptions";
 import { Prescription } from "@/types/prescription";
+import { formatRef } from "@/utils/format-record";
 
 type CounterState = {
   total: number;
@@ -44,6 +46,7 @@ export default function PrescriptionsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasToken = Boolean(getAuthToken());
 
   const counters = useMemo(() => {
     return prescriptions.reduce<CounterState>(
@@ -57,6 +60,13 @@ export default function PrescriptionsScreen() {
   }, [prescriptions]);
 
   const loadPrescriptions = useCallback(async (showRefresh = false) => {
+    if (!getAuthToken()) {
+      setLoading(false);
+      setRefreshing(false);
+      setError(null);
+      return;
+    }
+
     try {
       if (showRefresh) {
         setRefreshing(true);
@@ -80,6 +90,19 @@ export default function PrescriptionsScreen() {
       void loadPrescriptions();
     }, [loadPrescriptions])
   );
+
+  if (!hasToken) {
+    return (
+      <AppScreen style={styles.stateWrapper}>
+        <StatePanel
+          title="Login required"
+          message="Login with a staff account to access prescription records."
+          actionLabel="Go to login"
+          onAction={() => router.push("/auth/login")}
+        />
+      </AppScreen>
+    );
+  }
 
   return (
     <AppScreen style={styles.screen}>
@@ -135,9 +158,10 @@ export default function PrescriptionsScreen() {
               </View>
 
               <Text style={styles.cardTitle}>{item.diagnosis}</Text>
-              <Text style={styles.cardMeta}>Appointment: {item.appointmentId}</Text>
-              <Text style={styles.cardMeta}>Patient: {item.patientId}</Text>
-              <Text style={styles.cardMeta}>Doctor: {item.doctorId}</Text>
+              <Text style={styles.cardMeta}>Reference ID: {item.referenceId || "Not generated"}</Text>
+              <Text style={styles.cardMeta}>Appointment: {formatRef(item.appointmentId)}</Text>
+              <Text style={styles.cardMeta}>Patient: {formatRef(item.patientId)}</Text>
+              <Text style={styles.cardMeta}>Doctor: {formatRef(item.doctorId)}</Text>
               <Text style={styles.cardMeta}>Medicines: {item.medicines.length}</Text>
               {item.attachmentName ? <Text style={styles.attachmentText}>Attachment: {item.attachmentName}</Text> : null}
 

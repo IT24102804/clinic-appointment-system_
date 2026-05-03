@@ -5,6 +5,8 @@ import { Alert } from "react-native";
 import { PrescriptionForm } from "@/components/prescription-form";
 import { PageHeader } from "@/components/ui/page-header";
 import { AppScreen } from "@/components/ui/app-screen";
+import { StatePanel } from "@/components/ui/state-panel";
+import { getAuthToken } from "@/services/api-client";
 import { createPrescription } from "@/services/prescriptions";
 import { PrescriptionPayload } from "@/types/prescription";
 
@@ -12,6 +14,19 @@ export default function NewPrescriptionScreen() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  if (!getAuthToken()) {
+    return (
+      <AppScreen style={{ justifyContent: "center" }}>
+        <StatePanel
+          title="Login required"
+          message="Login with a staff account to create prescriptions."
+          actionLabel="Go to login"
+          onAction={() => router.push("/auth/login")}
+        />
+      </AppScreen>
+    );
+  }
 
   async function handleCreate(payload: PrescriptionPayload) {
     try {

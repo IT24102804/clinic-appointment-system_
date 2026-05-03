@@ -5,8 +5,10 @@ import { PrescriptionForm } from "@/components/prescription-form";
 import { PageHeader } from "@/components/ui/page-header";
 import { AppScreen } from "@/components/ui/app-screen";
 import { StatePanel } from "@/components/ui/state-panel";
+import { getAuthToken } from "@/services/api-client";
 import { getPrescription, updatePrescription } from "@/services/prescriptions";
 import { PrescriptionPayload } from "@/types/prescription";
+import { getRefId } from "@/utils/format-record";
 
 export default function EditPrescriptionScreen() {
   const router = useRouter();
@@ -15,8 +17,14 @@ export default function EditPrescriptionScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialValue, setInitialValue] = useState<PrescriptionPayload | undefined>(undefined);
+  const hasToken = Boolean(getAuthToken());
 
   useEffect(() => {
+    if (!getAuthToken()) {
+      setLoading(false);
+      return;
+    }
+
     async function loadPrescription() {
       if (!id) {
         return;
@@ -26,9 +34,9 @@ export default function EditPrescriptionScreen() {
         setLoading(true);
         const prescription = await getPrescription(id);
         setInitialValue({
-          appointmentId: prescription.appointmentId,
-          patientId: prescription.patientId,
-          doctorId: prescription.doctorId,
+          appointmentId: getRefId(prescription.appointmentId),
+          patientId: getRefId(prescription.patientId),
+          doctorId: getRefId(prescription.doctorId),
           diagnosis: prescription.diagnosis,
           medicines: prescription.medicines,
           notes: prescription.notes,
@@ -53,6 +61,19 @@ export default function EditPrescriptionScreen() {
 
     return "Update the prescription details, then save to push changes to the live API.";
   }, [initialValue]);
+
+  if (!hasToken) {
+    return (
+      <AppScreen style={{ justifyContent: "center" }}>
+        <StatePanel
+          title="Login required"
+          message="Login with a staff account to edit prescriptions."
+          actionLabel="Go to login"
+          onAction={() => router.push("/auth/login")}
+        />
+      </AppScreen>
+    );
+  }
 
   async function handleSave(payload: PrescriptionPayload) {
     if (!id) {

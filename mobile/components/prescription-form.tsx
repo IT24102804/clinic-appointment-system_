@@ -1,3 +1,4 @@
+import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -5,7 +6,11 @@ import { AppButton } from "@/components/ui/app-button";
 import { AppCard } from "@/components/ui/app-card";
 import { AppInput } from "@/components/ui/app-input";
 import { AppColors } from "@/constants/design";
+import { appointmentService } from "@/services/appointments";
+import { getAuthToken } from "@/services/api-client";
+import { CrudRecord } from "@/types/crud";
 import { MedicineItem, PrescriptionPayload, PrescriptionStatus } from "@/types/prescription";
+import { formatDate, formatRef, getRefId } from "@/utils/format-record";
 
 type PrescriptionFormProps = {
   initialValue?: PrescriptionPayload;
@@ -59,6 +64,19 @@ function cloneFormValue(value?: PrescriptionPayload): PrescriptionPayload {
   };
 }
 
+function toDateValue(value?: string) {
+  if (!value) {
+    return new Date();
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
+function toDatePayload(value: Date) {
+  return value.toISOString();
+}
+
 export function PrescriptionForm({
   initialValue,
   submitLabel,
@@ -67,19 +85,67 @@ export function PrescriptionForm({
   onSubmit,
 }: PrescriptionFormProps) {
   const [form, setForm] = useState<PrescriptionPayload>(() => cloneFormValue(initialValue));
+  const [appointments, setAppointments] = useState<CrudRecord[]>([]);
+  const [loadingAppointments, setLoadingAppointments] = useState(false);
+  const [appointmentError, setAppointmentError] = useState<string | null>(null);
+  const [showIssuedDatePicker, setShowIssuedDatePicker] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     setForm(cloneFormValue(initialValue));
   }, [initialValue]);
 
+  useEffect(() => {
+    if (!getAuthToken()) {
+      return;
+    }
+
+    async function loadAppointments() {
+      try {
+        setLoadingAppointments(true);
+        const data = await appointmentService.list();
+        setAppointments(data);
+        setAppointmentError(null);
+      } catch (loadError) {
+        setAppointmentError(loadError instanceof Error ? loadError.message : "Unable to load appointments.");
+      } finally {
+        setLoadingAppointments(false);
+      }
+    }
+
+    void loadAppointments();
+  }, []);
+
   const canShowIssuedAt = useMemo(() => form.status === "issued", [form.status]);
+  const selectedAppointment = useMemo(
+    () => appointments.find((appointment) => appointment._id === form.appointmentId),
+    [appointments, form.appointmentId]
+  );
 
   function updateField<Key extends keyof PrescriptionPayload>(key: Key, value: PrescriptionPayload[Key]) {
     setForm((current) => ({
       ...current,
       [key]: value,
     }));
+  }
+
+  function selectAppointment(appointment: CrudRecord) {
+    setForm((current) => ({
+      ...current,
+      appointmentId: appointment._id,
+      patientId: getRefId(appointment.patientId),
+      doctorId: getRefId(appointment.doctorId),
+    }));
+  }
+
+  function handleIssuedDateChange(event: DateTimePickerEvent, selectedDate?: Date) {
+    setShowIssuedDatePicker(false);
+
+    if (event.type === "dismissed" || !selectedDate) {
+      return;
+    }
+
+    updateField("issuedAt", toDatePayload(selectedDate));
   }
 
   function updateMedicine(index: number, key: keyof MedicineItem, value: string) {
@@ -156,24 +222,39 @@ export function PrescriptionForm({
   return (
     <View style={styles.container}>
       <Text style={styles.sectionLabel}>Visit references</Text>
+      {loadingAppointments ? <Text style={styles.helperText}>Loading appointments...</Text> : null}
+      {appointmentError ? <Text style={styles.errorText}>{appointmentError}</Text> : null}
+      {!loadingAppointments && appointments.length === 0 ? (
+        <Text style={styles.helperText}>Create an appointment first. Prescriptions are linked to an appointment, patient, and doctor.</Text>
+      ) : null}
+      <View style={styles.referenceList}>
+        {appointments.map((appointment) => {
+          const selected = form.appointmentId === appointment._id;
+          const label = `${formatDate(appointment.appointmentDate)} ${appointment.timeSlot || ""}`.trim();
+
+          return (
+            <AppButton
+              key={appointment._id}
+              label={label || appointment._id}
+              onPress={() => selectAppointment(appointment)}
+              variant={selected ? "primary" : "secondary"}
+            />
+          );
+        })}
+      </View>
+      <AppInput placeholder="Appointment ID" value={form.appointmentId || "Select appointment"} editable={false} autoCapitalize="none" />
       <AppInput
-        placeholder="Appointment ID"
-        value={form.appointmentId}
-        onChangeText={(value) => updateField("appointmentId", value)}
-        autoCapitalize="none"
+        placeholder="Patient"
+        value={form.patientId ? (selectedAppointment ? formatRef(selectedAppointment.patientId) : form.patientId) : "Select appointment"}
+        editable={false}
       />
+      <Text style={styles.helperText}>Patient ID: {form.patientId || "Not selected"}</Text>
       <AppInput
-        placeholder="Patient ID"
-        value={form.patientId}
-        onChangeText={(value) => updateField("patientId", value)}
-        autoCapitalize="none"
+        placeholder="Doctor"
+        value={form.doctorId ? (selectedAppointment ? formatRef(selectedAppointment.doctorId) : form.doctorId) : "Select appointment"}
+        editable={false}
       />
-      <AppInput
-        placeholder="Doctor ID"
-        value={form.doctorId}
-        onChangeText={(value) => updateField("doctorId", value)}
-        autoCapitalize="none"
-      />
+      <Text style={styles.helperText}>Doctor ID: {form.doctorId || "Not selected"}</Text>
 
       <Text style={styles.sectionLabel}>Clinical details</Text>
       <AppInput placeholder="Diagnosis" value={form.diagnosis} onChangeText={(value) => updateField("diagnosis", value)} />
@@ -196,12 +277,18 @@ export function PrescriptionForm({
       </View>
 
       {canShowIssuedAt ? (
-        <AppInput
-          placeholder="Issued at (optional ISO date)"
-          value={form.issuedAt}
-          onChangeText={(value) => updateField("issuedAt", value)}
-          autoCapitalize="none"
-        />
+        <View style={styles.dateGroup}>
+          <Text style={styles.helperText}>{form.issuedAt ? formatDate(form.issuedAt) : "No issued date selected"}</Text>
+          <AppButton label="Pick issued date" variant="secondary" onPress={() => setShowIssuedDatePicker(true)} />
+          {showIssuedDatePicker ? (
+            <DateTimePicker
+              value={toDateValue(form.issuedAt)}
+              mode="date"
+              display="default"
+              onChange={handleIssuedDateChange}
+            />
+          ) : null}
+        </View>
       ) : null}
 
       <View style={styles.medicinesHeader}>
@@ -266,6 +353,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
+  },
+  referenceList: {
+    gap: 8,
+  },
+  helperText: {
+    color: AppColors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  dateGroup: {
+    gap: 8,
   },
   statusButton: {
     minWidth: 112,

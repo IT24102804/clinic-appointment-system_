@@ -1,11 +1,6 @@
-import { toApiUrl } from "@/constants/api";
+import { appendAttachment, request } from "@/services/api-client";
+import { UploadAsset } from "@/types/crud";
 import { Prescription, PrescriptionPayload, PrescriptionStatus } from "@/types/prescription";
-
-type ApiEnvelope<T> = {
-  success: boolean;
-  message: string;
-  data: T;
-};
 
 type PrescriptionFilters = {
   patientId?: string;
@@ -13,52 +8,6 @@ type PrescriptionFilters = {
   appointmentId?: string;
   status?: PrescriptionStatus;
 };
-
-type UploadAsset = {
-  uri: string;
-  name: string;
-  mimeType?: string | null;
-};
-
-function inferMimeType(fileName: string) {
-  if (fileName.endsWith(".pdf")) {
-    return "application/pdf";
-  }
-
-  if (fileName.endsWith(".png")) {
-    return "image/png";
-  }
-
-  if (fileName.endsWith(".webp")) {
-    return "image/webp";
-  }
-
-  return "image/jpeg";
-}
-
-async function request<T>(path: string, init?: RequestInit) {
-  const isFormData = init?.body instanceof FormData;
-  const response = await fetch(toApiUrl(path), {
-    ...init,
-    headers: {
-      Accept: "application/json",
-      ...(isFormData ? {} : { "Content-Type": "application/json" }),
-      ...(init?.headers ?? {}),
-    },
-  });
-
-  const payload = (await response.json().catch(() => null)) as ApiEnvelope<T> | null;
-
-  if (!response.ok) {
-    throw new Error(payload?.message || "Request failed.");
-  }
-
-  if (!payload) {
-    throw new Error("The server returned an empty response.");
-  }
-
-  return payload.data;
-}
 
 export async function listPrescriptions(filters?: PrescriptionFilters) {
   const searchParams = new URLSearchParams();
@@ -109,15 +58,7 @@ export async function deletePrescription(id: string) {
 
 export async function uploadPrescriptionAttachment(id: string, asset: UploadAsset) {
   const formData = new FormData();
-
-  formData.append(
-    "attachment",
-    {
-      uri: asset.uri,
-      name: asset.name,
-      type: asset.mimeType || inferMimeType(asset.name.toLowerCase()),
-    } as any
-  );
+  appendAttachment(formData, asset);
 
   return request<Prescription>(`/api/prescriptions/${id}/attachment`, {
     method: "POST",
