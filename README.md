@@ -5,8 +5,8 @@ Shared mobile and backend foundation for the group assignment.
 ## Current status
 - Expo mobile app is set up and running.
 - Express backend is set up and connected to MongoDB Atlas.
-- Prescription Management is implemented as the reference module.
-- Shared mobile shell, shared UI components, and starter templates are in place.
+- Authentication, CRUD modules, upload endpoints, shared mobile shell, shared UI components, and starter templates are in place.
+- Prescription Management remains the reference module and now uses the shared auth/upload structure.
 
 ## Shared project update
 - The base project structure is already in place in the main repository.
@@ -31,12 +31,16 @@ npm install
 npm run dev
 ```
 
+Create `backend/.env` from `backend/.env.example` before starting the backend.
+
 ### Mobile
 ```powershell
 cd mobile
 npm install
 npm start
 ```
+
+For the final deployed demo, set `EXPO_PUBLIC_API_URL` to the hosted backend URL.
 
 ## Team workflow
 - Do not push directly to `main`.
@@ -67,3 +71,6 @@ npm start
 ## Key docs
 - [Module ownership](./docs/MODULE_OWNERSHIP.md)
 - [Prescription reference](./docs/PRESCRIPTION_REFERENCE.md)
+- [System architecture](./docs/SYSTEM_ARCHITECTURE.md)
+- [Database schema](./docs/DATABASE_SCHEMA.md)
+- [API endpoint table](./docs/API_ENDPOINTS.md)

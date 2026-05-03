@@ -1,18 +1,7 @@
-import { ModulePlaceholderScreen } from "@/components/ui/module-placeholder-screen";
+import { ModuleListScreen } from "@/components/module/module-list-screen";
+import { moduleConfigs } from "@/constants/module-configs";
+import { appointmentService } from "@/services/appointments";
 
-export default function AppointmentsPlaceholderScreen() {
-  return (
-    <ModulePlaceholderScreen
-      eyebrow="Visit workflow"
-      title="Appointments"
-      owner="Member 3"
-      description="This area is reserved for booking, rescheduling, cancellation, and visit coordination so staff can manage the day from one place."
-      plannedScreens={[
-        "Appointment list",
-        "Appointment details",
-        "Create appointment",
-        "Edit / reschedule appointment",
-      ]}
-    />
-  );
+export default function AppointmentsScreen() {
+  return <ModuleListScreen config={moduleConfigs.appointments} service={appointmentService} />;
 }

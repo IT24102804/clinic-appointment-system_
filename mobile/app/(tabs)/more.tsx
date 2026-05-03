@@ -1,62 +1,81 @@
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { AppButton } from "@/components/ui/app-button";
 import { AppCard } from "@/components/ui/app-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { AppScreen } from "@/components/ui/app-screen";
 import { AppColors } from "@/constants/design";
+import { useAuthSession } from "@/context/auth-context";
 
 const peopleModules = [
   {
-    title: "Patient Management",
-    owner: "Member 1",
-    description: "Patient profiles, patient details, and onboarding-related screens.",
-    route: "/placeholders/patients",
+    title: "Patients",
+    owner: "Clinic records",
+    description: "Manage patient profiles, contact details, documents, and active status.",
+    route: "/patients",
   },
   {
-    title: "Doctor Management",
-    owner: "Member 2",
-    description: "Doctor profiles, specialization details, and availability screens.",
-    route: "/placeholders/doctors",
+    title: "Doctors",
+    owner: "Care team",
+    description: "Manage doctors, specializations, room details, and availability.",
+    route: "/doctors",
   },
 ];
 
 const adminModules = [
   {
-    title: "Billing Management",
-    owner: "Member 5",
-    description: "Billing, payment status, and invoice-related workflows.",
-    route: "/placeholders/billing",
+    title: "Billing",
+    owner: "Payments",
+    description: "Create bills, track payment status, and attach receipts.",
+    route: "/billing",
   },
   {
     title: "Medical Records",
-    owner: "Member 6",
-    description: "Visit history, diagnosis notes, and long-term treatment records.",
-    route: "/placeholders/medical-records",
+    owner: "Clinical history",
+    description: "Review visit summaries, diagnoses, treatments, and reports.",
+    route: "/medical-records",
+  },
+  {
+    title: "Patient Documents",
+    owner: "Submissions",
+    description: "Review supporting documents uploaded by patients.",
+    route: "/patient-documents",
+  },
+  {
+    title: "Staff Accounts",
+    owner: "Access control",
+    description: "Manage admin, doctor, and receptionist login access.",
+    route: "/users",
   },
 ] as const;
 
 export default function MoreScreen() {
   const router = useRouter();
+  const { logout, user } = useAuthSession();
+
+  async function handleLogout() {
+    await logout();
+    router.replace("/auth/login");
+  }
 
   return (
     <AppScreen scroll contentContainerStyle={styles.screen}>
       <PageHeader
-        eyebrow="Care workspace"
-        title="More tools"
-        subtitle="Open the supporting areas of the clinic without cluttering the main tabs. Each card leads to a reserved module space."
+        eyebrow="Clinic menu"
+        title="More"
+        subtitle="Open patient records, care-team details, billing, history, and staff access."
       />
 
       <AppCard muted style={styles.introCard}>
-        <Text style={styles.introTitle}>Keep the flow simple</Text>
-        <Text style={styles.introText}>
-          Friendly mobile apps keep the main journey focused, then group supporting tools in one calm place. This tab is that shared workspace.
-        </Text>
+        <Text style={styles.introTitle}>Clinic support modules</Text>
+        <Text style={styles.introText}>Use this area for records that support appointment booking and follow-up care.</Text>
+        <Text style={styles.introText}>{user?.name ? `Logged in as ${user.name}` : "Staff account"}</Text>
       </AppCard>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>People</Text>
-        <Text style={styles.sectionSubtitle}>Modules that help staff manage patient and doctor information.</Text>
+        <Text style={styles.sectionSubtitle}>Profiles used when booking appointments and creating clinical records.</Text>
         <View style={styles.list}>
           {peopleModules.map((moduleLink) => (
             <Pressable key={moduleLink.title} onPress={() => router.push(moduleLink.route as any)}>
@@ -72,7 +91,7 @@ export default function MoreScreen() {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Operations</Text>
-        <Text style={styles.sectionSubtitle}>Modules that support finance, records, and the full patient journey.</Text>
+        <Text style={styles.sectionSubtitle}>Billing, medical history, and staff access for daily clinic work.</Text>
         <View style={styles.list}>
           {adminModules.map((moduleLink) => (
             <Pressable key={moduleLink.title} onPress={() => router.push(moduleLink.route as any)}>
@@ -85,6 +104,8 @@ export default function MoreScreen() {
           ))}
         </View>
       </View>
+
+      <AppButton label="Logout" variant="danger" onPress={() => void handleLogout()} />
     </AppScreen>
   );
 }
