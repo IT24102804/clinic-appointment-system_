@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { addReferenceId } = require("../utils/referenceId");
 
 const medicineSchema = new mongoose.Schema(
   {
@@ -81,6 +82,14 @@ const prescriptionSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    attachmentPublicId: {
+      type: String,
+      default: "",
+    },
+    attachmentResourceType: {
+      type: String,
+      default: "",
+    },
     issuedAt: {
       type: Date,
       default: null,
@@ -90,5 +99,7 @@ const prescriptionSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+addReferenceId(prescriptionSchema, "RX");
 
 module.exports = mongoose.model("Prescription", prescriptionSchema);

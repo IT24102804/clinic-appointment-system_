@@ -2,6 +2,8 @@ const { body, param, query } = require("express-validator");
 
 const STATUSES = ["draft", "issued", "cancelled"];
 const objectIdMessage = "Must be a valid MongoDB ObjectId.";
+const DOSAGE_PATTERN = /^\d+(\.\d+)?\s?(mg|g|mcg|ml|l|tablet|tablets|capsule|capsules|drop|drops|puff|puffs|unit|units)$/i;
+const DURATION_PATTERN = /^\d+\s?(day|days|week|weeks|month|months)$/i;
 
 const prescriptionIdParamValidator = [
   param("id").isMongoId().withMessage(objectIdMessage),
@@ -29,9 +31,15 @@ const createPrescriptionValidator = [
     .isArray({ min: 1 })
     .withMessage("medicines must contain at least one medicine entry."),
   body("medicines.*.name").trim().notEmpty().withMessage("Each medicine requires a name."),
-  body("medicines.*.dosage").trim().notEmpty().withMessage("Each medicine requires a dosage."),
+  body("medicines.*.dosage")
+    .trim()
+    .matches(DOSAGE_PATTERN)
+    .withMessage("Each medicine dosage must be like 5mg, 10 ml, 1 tablet, or 2 drops."),
   body("medicines.*.frequency").trim().notEmpty().withMessage("Each medicine requires a frequency."),
-  body("medicines.*.duration").trim().notEmpty().withMessage("Each medicine requires a duration."),
+  body("medicines.*.duration")
+    .trim()
+    .matches(DURATION_PATTERN)
+    .withMessage("Each medicine duration must be like 7 days, 2 weeks, or 1 month."),
   body("medicines.*.instructions")
     .optional({ values: "null" })
     .isString()
@@ -71,8 +79,8 @@ const updatePrescriptionValidator = [
   body("medicines.*.dosage")
     .optional()
     .trim()
-    .notEmpty()
-    .withMessage("Each medicine requires a dosage."),
+    .matches(DOSAGE_PATTERN)
+    .withMessage("Each medicine dosage must be like 5mg, 10 ml, 1 tablet, or 2 drops."),
   body("medicines.*.frequency")
     .optional()
     .trim()
@@ -81,8 +89,8 @@ const updatePrescriptionValidator = [
   body("medicines.*.duration")
     .optional()
     .trim()
-    .notEmpty()
-    .withMessage("Each medicine requires a duration."),
+    .matches(DURATION_PATTERN)
+    .withMessage("Each medicine duration must be like 7 days, 2 weeks, or 1 month."),
   body("medicines.*.instructions")
     .optional({ values: "null" })
     .isString()
