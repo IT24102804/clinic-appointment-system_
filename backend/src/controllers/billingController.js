@@ -6,6 +6,7 @@ const populate = [
   { path: "patientId", select: "referenceId fullName phone email" },
   { path: "appointmentId", select: "referenceId appointmentDate timeSlot status" },
 ];
+const BILLABLE_APPOINTMENT_STATUSES = ["confirmed", "completed"];
 
 function buildPayload(body) {
   return {
@@ -19,14 +20,15 @@ function buildPayload(body) {
   };
 }
 
-async function buildTrustedPayload(body, res) {
+async function buildTrustedPayload(body, fallbackAppointmentId, res) {
   const payload = buildPayload(body);
+  const appointmentId = payload.appointmentId || fallbackAppointmentId;
 
-  if (!payload.appointmentId) {
+  if (!appointmentId) {
     return payload;
   }
 
-  const appointment = await Appointment.findById(payload.appointmentId).select("patientId").lean();
+  const appointment = await Appointment.findById(appointmentId).select("patientId status").lean();
 
   if (!appointment) {
     res.status(404).json({
@@ -36,8 +38,17 @@ async function buildTrustedPayload(body, res) {
     return null;
   }
 
+  if (!BILLABLE_APPOINTMENT_STATUSES.includes(appointment.status)) {
+    res.status(400).json({
+      success: false,
+      message: "Billing can only be created for confirmed or completed appointments.",
+    });
+    return null;
+  }
+
   return {
     ...payload,
+    appointmentId,
     patientId: appointment.patientId,
   };
 }
@@ -80,7 +91,7 @@ const crudController = createCrudController({
 });
 
 async function createBill(req, res) {
-  const payload = await buildTrustedPayload(req.body, res);
+  const payload = await buildTrustedPayload(req.body, null, res);
 
   if (!payload) {
     return undefined;
@@ -108,7 +119,7 @@ async function updateBill(req, res) {
     });
   }
 
-  const payload = await buildTrustedPayload(req.body, res);
+  const payload = await buildTrustedPayload(req.body, existingBill.appointmentId, res);
 
   if (!payload) {
     return undefined;

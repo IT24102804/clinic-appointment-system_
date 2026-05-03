@@ -55,6 +55,73 @@ const crudController = createCrudController({
   },
 });
 
+function buildDuplicateDoctorQuery(payload, excludeId) {
+  const duplicateFields = [];
+
+  if (payload.phone) {
+    duplicateFields.push({ phone: payload.phone });
+  }
+
+  if (payload.email) {
+    duplicateFields.push({ email: payload.email });
+  }
+
+  if (duplicateFields.length === 0) {
+    return null;
+  }
+
+  const query = { $or: duplicateFields };
+
+  if (excludeId) {
+    query._id = { $ne: excludeId };
+  }
+
+  return query;
+}
+
+async function ensureUniqueDoctor(payload, excludeId, res) {
+  const query = buildDuplicateDoctorQuery(payload, excludeId);
+
+  if (!query) {
+    return true;
+  }
+
+  const existingDoctor = await Doctor.findOne(query).lean();
+
+  if (!existingDoctor) {
+    return true;
+  }
+
+  return res.status(409).json({
+    success: false,
+    message: "A doctor with this phone number or email already exists.",
+  });
+}
+
+async function createDoctor(req, res) {
+  const payload = buildPayload(req.body);
+  const unique = await ensureUniqueDoctor(payload, null, res);
+
+  if (unique !== true) {
+    return unique;
+  }
+
+  req.body = payload;
+  return crudController.create(req, res);
+}
+
+async function updateDoctor(req, res) {
+  const payload = buildPayload(req.body);
+  const unique = await ensureUniqueDoctor(payload, req.params.id, res);
+
+  if (unique !== true) {
+    return unique;
+  }
+
+  req.body = payload;
+  return crudController.update(req, res);
+}
+
 async function deactivateDoctor(req, res) {
   const doctor = await Doctor.findById(req.params.id);
 
@@ -84,5 +151,7 @@ async function deactivateDoctor(req, res) {
 
 module.exports = {
   ...crudController,
+  create: createDoctor,
   remove: deactivateDoctor,
+  update: updateDoctor,
 };

@@ -153,6 +153,43 @@ async function validatePrescriptionRelationship(payload, res, options = {}) {
   return true;
 }
 
+async function buildTrustedPrescriptionPayload(body, fallbackAppointmentId, res, options = {}) {
+  const payload = normalizePrescriptionPayload(body);
+  const appointmentId = payload.appointmentId || fallbackAppointmentId;
+
+  if (!appointmentId) {
+    return payload;
+  }
+
+  const appointment = await Appointment.findById(appointmentId).select("patientId doctorId status").lean();
+
+  if (!appointment) {
+    res.status(404).json({
+      success: false,
+      message: "Linked appointment not found.",
+    });
+    return null;
+  }
+
+  if (
+    options.requireAllowedAppointmentStatus &&
+    !PRESCRIPTION_ALLOWED_APPOINTMENT_STATUSES.includes(appointment.status)
+  ) {
+    res.status(400).json({
+      success: false,
+      message: "Prescription can only be created for confirmed or completed appointments.",
+    });
+    return null;
+  }
+
+  return {
+    ...payload,
+    appointmentId,
+    patientId: appointment.patientId,
+    doctorId: appointment.doctorId,
+  };
+}
+
 async function validateUniqueAppointmentPrescription(appointmentId, excludeId, res) {
   if (!appointmentId) {
     return true;
@@ -236,16 +273,21 @@ async function getPrescription(req, res) {
 }
 
 async function createPrescription(req, res) {
-  const payload = normalizePrescriptionPayload(req.body);
+  const payload = await buildTrustedPrescriptionPayload(req.body, null, res, {
+    requireAllowedAppointmentStatus: true,
+  });
+
+  if (!payload) {
+    return undefined;
+  }
+
   const validDoctorAccess = await validateDoctorPrescriptionAccess(req, payload.doctorId, res);
 
   if (validDoctorAccess !== true) {
     return validDoctorAccess;
   }
 
-  const validRelationship = await validatePrescriptionRelationship(payload, res, {
-    requireAllowedAppointmentStatus: true,
-  });
+  const validRelationship = await validatePrescriptionRelationship(payload, res);
 
   if (validRelationship !== true) {
     return validRelationship;
@@ -277,11 +319,16 @@ async function updatePrescription(req, res) {
     });
   }
 
-  const payload = normalizePrescriptionPayload(req.body);
+  const payload = await buildTrustedPrescriptionPayload(req.body, prescription.appointmentId, res);
+
+  if (!payload) {
+    return undefined;
+  }
+
   const mergedPayload = {
-    appointmentId: payload.appointmentId || prescription.appointmentId,
-    patientId: payload.patientId || prescription.patientId,
-    doctorId: payload.doctorId || prescription.doctorId,
+    appointmentId: payload.appointmentId,
+    patientId: payload.patientId,
+    doctorId: payload.doctorId,
   };
 
   const validDoctorAccess = await validateDoctorPrescriptionAccess(req, mergedPayload.doctorId, res);

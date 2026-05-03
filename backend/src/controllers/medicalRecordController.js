@@ -7,6 +7,7 @@ const populate = [
   { path: "doctorId", select: "referenceId fullName specialization" },
   { path: "appointmentId", select: "referenceId appointmentDate timeSlot status" },
 ];
+const MEDICAL_RECORD_APPOINTMENT_STATUSES = ["completed"];
 
 function buildPayload(body) {
   return {
@@ -29,12 +30,20 @@ async function buildTrustedPayload(body, fallbackAppointmentId, res) {
     return payload;
   }
 
-  const appointment = await Appointment.findById(appointmentId).select("patientId doctorId").lean();
+  const appointment = await Appointment.findById(appointmentId).select("patientId doctorId status").lean();
 
   if (!appointment) {
     res.status(404).json({
       success: false,
       message: "Appointment not found for this medical record.",
+    });
+    return null;
+  }
+
+  if (!MEDICAL_RECORD_APPOINTMENT_STATUSES.includes(appointment.status)) {
+    res.status(400).json({
+      success: false,
+      message: "Medical records can only be created for completed appointments.",
     });
     return null;
   }
@@ -45,6 +54,29 @@ async function buildTrustedPayload(body, fallbackAppointmentId, res) {
     patientId: appointment.patientId,
     doctorId: appointment.doctorId,
   };
+}
+
+async function ensureUniqueMedicalRecord(appointmentId, excludeId, res) {
+  if (!appointmentId) {
+    return true;
+  }
+
+  const query = { appointmentId };
+
+  if (excludeId) {
+    query._id = { $ne: excludeId };
+  }
+
+  const existingRecord = await MedicalRecord.findOne(query).lean();
+
+  if (!existingRecord) {
+    return true;
+  }
+
+  return res.status(409).json({
+    success: false,
+    message: "A medical record already exists for this appointment.",
+  });
 }
 
 const crudController = createCrudController({
@@ -60,6 +92,12 @@ async function createMedicalRecord(req, res) {
 
   if (!payload) {
     return undefined;
+  }
+
+  const unique = await ensureUniqueMedicalRecord(payload.appointmentId, null, res);
+
+  if (unique !== true) {
+    return unique;
   }
 
   req.body = payload;
@@ -80,6 +118,12 @@ async function updateMedicalRecord(req, res) {
 
   if (!payload) {
     return undefined;
+  }
+
+  const unique = await ensureUniqueMedicalRecord(payload.appointmentId, req.params.id, res);
+
+  if (unique !== true) {
+    return unique;
   }
 
   req.body = payload;

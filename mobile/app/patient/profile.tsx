@@ -10,7 +10,13 @@ import { AppScreen } from "@/components/ui/app-screen";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatePanel } from "@/components/ui/state-panel";
 import { AppColors } from "@/constants/design";
-import { getMyProfile, PatientProfile, updateMyProfile } from "@/services/patient-portal";
+import {
+  deleteMyAdditionalAddress,
+  deleteMyEmergencyContact,
+  getMyProfile,
+  PatientProfile,
+  updateMyProfile,
+} from "@/services/patient-portal";
 import { formatDate, formatValue } from "@/utils/format-record";
 
 export default function PatientProfileScreen() {
@@ -56,14 +62,18 @@ export default function PatientProfileScreen() {
     try {
       setSaving(true);
       setError(null);
+      const emergencyContact =
+        emergencyName.trim() || emergencyPhone.trim() || emergencyRelationship.trim()
+          ? {
+              name: emergencyName.trim(),
+              phone: emergencyPhone.trim(),
+              relationship: emergencyRelationship.trim(),
+            }
+          : undefined;
       const updated = await updateMyProfile({
         phone: phone.trim(),
         address: address.trim(),
-        emergencyContact: {
-          name: emergencyName.trim(),
-          phone: emergencyPhone.trim(),
-          relationship: emergencyRelationship.trim(),
-        },
+        ...(emergencyContact ? { emergencyContact } : {}),
         additionalAddresses,
       });
       setProfile(updated);
@@ -93,7 +103,37 @@ export default function PatientProfileScreen() {
   }
 
   function removeAddress(index: number) {
-    setAdditionalAddresses((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    async function remove() {
+      try {
+        setSaving(true);
+        setError(null);
+        const updated = await deleteMyAdditionalAddress(index);
+        setProfile(updated);
+        setAdditionalAddresses(updated.additionalAddresses || []);
+      } catch (deleteError) {
+        setError(deleteError instanceof Error ? deleteError.message : "Unable to delete additional address.");
+      } finally {
+        setSaving(false);
+      }
+    }
+
+    void remove();
+  }
+
+  async function clearEmergencyContact() {
+    try {
+      setSaving(true);
+      setError(null);
+      const updated = await deleteMyEmergencyContact();
+      setProfile(updated);
+      setEmergencyName("");
+      setEmergencyPhone("");
+      setEmergencyRelationship("");
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete emergency contact.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -125,6 +165,7 @@ export default function PatientProfileScreen() {
               <AppInput value={emergencyName} onChangeText={setEmergencyName} placeholder="Name" />
               <AppInput value={emergencyPhone} onChangeText={setEmergencyPhone} placeholder="Phone" keyboardType="phone-pad" />
               <AppInput value={emergencyRelationship} onChangeText={setEmergencyRelationship} placeholder="Relationship" />
+              <AppButton label="Delete emergency contact" variant="secondary" onPress={() => void clearEmergencyContact()} />
 
               <Text style={styles.title}>Additional addresses</Text>
               {additionalAddresses.length === 0 ? (

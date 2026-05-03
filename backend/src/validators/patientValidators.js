@@ -4,6 +4,20 @@ const { NIC_PATTERN, PHONE_PATTERN } = require("../utils/validationPatterns");
 const GENDERS = ["male", "female", "other"];
 const STATUSES = ["active", "inactive"];
 
+function hasCompleteEmergencyContact(value) {
+  if (value === undefined || value === null) {
+    return true;
+  }
+
+  const hasAnyValue = Boolean(value.name || value.phone || value.relationship);
+
+  if (!hasAnyValue) {
+    return true;
+  }
+
+  return Boolean(value.name && value.phone && value.relationship);
+}
+
 const createPatientValidator = [
   body("fullName").trim().notEmpty().withMessage("fullName is required."),
   body("age").isInt({ min: 16 }).withMessage("age must be 16 or above."),
@@ -19,7 +33,7 @@ const createPatientValidator = [
     .withMessage("nic must be a valid Sri Lankan NIC, for example 961234567V or 199612345678."),
   body("dateOfBirth").isISO8601().withMessage("dateOfBirth must be a valid ISO date."),
   body("email").optional({ values: "falsy" }).isEmail().withMessage("email must be valid."),
-  body("address").optional({ values: "null" }).isString().withMessage("address must be text."),
+  body("address").trim().notEmpty().withMessage("address is required."),
   body("status").optional().isIn(STATUSES).withMessage(`status must be one of: ${STATUSES.join(", ")}.`),
 ];
 
@@ -39,7 +53,7 @@ const updatePatientValidator = [
     .withMessage("nic must be a valid Sri Lankan NIC, for example 961234567V or 199612345678."),
   body("dateOfBirth").optional({ values: "falsy" }).isISO8601().withMessage("dateOfBirth must be a valid ISO date."),
   body("email").optional({ values: "falsy" }).isEmail().withMessage("email must be valid."),
-  body("address").optional({ values: "null" }).isString().withMessage("address must be text."),
+  body("address").optional({ values: "null" }).trim().notEmpty().withMessage("address cannot be empty."),
   body("status").optional().isIn(STATUSES).withMessage(`status must be one of: ${STATUSES.join(", ")}.`),
 ];
 
@@ -50,12 +64,21 @@ const updateMyPatientValidator = [
     .matches(PHONE_PATTERN)
     .withMessage("phone must be a valid Sri Lankan number, for example 0712345678 or +94712345678."),
   body("gender").optional().isIn(GENDERS).withMessage(`gender must be one of: ${GENDERS.join(", ")}.`),
-  body("address").optional({ values: "null" }).isString().withMessage("address must be text."),
+  body("address").optional({ values: "null" }).trim().notEmpty().withMessage("address cannot be empty."),
   body("dateOfBirth").optional({ values: "falsy" }).isISO8601().withMessage("dateOfBirth must be a valid ISO date."),
-  body("additionalAddresses").optional().isArray().withMessage("additionalAddresses must be an array."),
+  body("additionalAddresses")
+    .optional()
+    .isArray({ max: 3 })
+    .withMessage("additionalAddresses must be an array with at most 3 addresses."),
   body("additionalAddresses.*.label").optional({ values: "falsy" }).trim(),
-  body("additionalAddresses.*.address").optional().trim().notEmpty().withMessage("additional address cannot be empty."),
-  body("emergencyContact").optional().isObject().withMessage("emergencyContact must be an object."),
+  body("additionalAddresses.*.address").trim().notEmpty().withMessage("additional address cannot be empty."),
+  body("emergencyContact")
+    .optional({ values: "null" })
+    .isObject()
+    .withMessage("emergencyContact must be an object.")
+    .bail()
+    .custom(hasCompleteEmergencyContact)
+    .withMessage("emergencyContact must include name, phone, and relationship when provided."),
   body("emergencyContact.name").optional({ values: "falsy" }).trim(),
   body("emergencyContact.phone")
     .optional({ values: "falsy" })

@@ -1,4 +1,5 @@
 const Patient = require("../models/Patient");
+const User = require("../models/User");
 const { createCrudController } = require("../utils/crudController");
 
 function getPatientForUser(userId) {
@@ -143,9 +144,87 @@ async function updateMyProfile(req, res) {
   });
 }
 
+async function deactivatePatient(req, res) {
+  const patient = await Patient.findById(req.params.id);
+
+  if (!patient) {
+    return res.status(404).json({
+      success: false,
+      message: "Patient not found.",
+    });
+  }
+
+  patient.status = "inactive";
+  await patient.save();
+
+  if (patient.userId) {
+    await User.findByIdAndUpdate(patient.userId, { status: "inactive" });
+  }
+
+  const updated = await Patient.findById(patient._id).lean();
+
+  return res.status(200).json({
+    success: true,
+    message: "Patient deactivated successfully.",
+    data: updated,
+  });
+}
+
+async function deleteMyAdditionalAddress(req, res) {
+  const patient = await getPatientForUser(req.user._id);
+
+  if (!patient) {
+    return res.status(404).json({
+      success: false,
+      message: "Patient profile not found for this account.",
+    });
+  }
+
+  const index = Number(req.params.index);
+
+  if (!Number.isInteger(index) || index < 0 || index >= patient.additionalAddresses.length) {
+    return res.status(404).json({
+      success: false,
+      message: "Additional address not found.",
+    });
+  }
+
+  patient.additionalAddresses.splice(index, 1);
+  await patient.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "Additional address deleted successfully.",
+    data: patient,
+  });
+}
+
+async function deleteMyEmergencyContact(req, res) {
+  const patient = await getPatientForUser(req.user._id);
+
+  if (!patient) {
+    return res.status(404).json({
+      success: false,
+      message: "Patient profile not found for this account.",
+    });
+  }
+
+  patient.emergencyContact = { name: "", phone: "", relationship: "" };
+  await patient.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "Emergency contact deleted successfully.",
+    data: patient,
+  });
+}
+
 module.exports = {
   ...crudController,
   create: createPatient,
+  deleteMyAdditionalAddress,
+  deleteMyEmergencyContact,
+  remove: deactivatePatient,
   getMyProfile,
   update: updatePatient,
   updateMyProfile,

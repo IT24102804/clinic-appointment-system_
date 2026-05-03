@@ -35,6 +35,18 @@ export function updateMyProfile(payload: Partial<PatientProfile>) {
   });
 }
 
+export function deleteMyAdditionalAddress(index: number) {
+  return request<PatientProfile>(`/api/patients/me/additional-addresses/${index}`, {
+    method: "DELETE",
+  });
+}
+
+export function deleteMyEmergencyContact() {
+  return request<PatientProfile>("/api/patients/me/emergency-contact", {
+    method: "DELETE",
+  });
+}
+
 export function listPatientDoctors() {
   return request<CrudRecord[]>("/api/patient/doctors");
 }

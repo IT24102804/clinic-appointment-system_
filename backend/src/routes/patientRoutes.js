@@ -21,6 +21,9 @@ router
   .get(patientController.getMyProfile)
   .put(updateMyPatientValidator, validateRequest, patientController.updateMyProfile);
 
+router.delete("/me/additional-addresses/:index", patientController.deleteMyAdditionalAddress);
+router.delete("/me/emergency-contact", patientController.deleteMyEmergencyContact);
+
 router
   .route("/")
   .get(authorizeRoles("admin", "receptionist", "doctor"), patientQueryValidator, validateRequest, patientController.list)
