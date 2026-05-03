@@ -1,4 +1,5 @@
 const Doctor = require("../models/Doctor");
+const User = require("../models/User");
 const { createCrudController } = require("../utils/crudController");
 
 function parseAvailabilityText(value) {
@@ -41,7 +42,7 @@ function buildPayload(body) {
   };
 }
 
-module.exports = createCrudController({
+const crudController = createCrudController({
   Model: Doctor,
   resourceName: "Doctor",
   buildPayload,
@@ -53,3 +54,35 @@ module.exports = createCrudController({
     resourceTypeField: "profileImageResourceType",
   },
 });
+
+async function deactivateDoctor(req, res) {
+  const doctor = await Doctor.findById(req.params.id);
+
+  if (!doctor) {
+    return res.status(404).json({
+      success: false,
+      message: "Doctor not found.",
+    });
+  }
+
+  doctor.status = "inactive";
+  doctor.availabilityStatus = "unavailable";
+  await doctor.save();
+
+  if (doctor.userId) {
+    await User.findByIdAndUpdate(doctor.userId, { status: "inactive" });
+  }
+
+  const updated = await Doctor.findById(doctor._id).lean();
+
+  return res.status(200).json({
+    success: true,
+    message: "Doctor deactivated successfully.",
+    data: updated,
+  });
+}
+
+module.exports = {
+  ...crudController,
+  remove: deactivateDoctor,
+};

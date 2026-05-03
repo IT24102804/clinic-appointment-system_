@@ -3,8 +3,8 @@ const { body, query } = require("express-validator");
 const STATUSES = ["active", "archived"];
 
 const createMedicalRecordValidator = [
-  body("patientId").isMongoId().withMessage("patientId must be a valid MongoDB ObjectId."),
-  body("doctorId").isMongoId().withMessage("doctorId must be a valid MongoDB ObjectId."),
+  body("patientId").optional().isMongoId().withMessage("patientId must be a valid MongoDB ObjectId."),
+  body("doctorId").optional().isMongoId().withMessage("doctorId must be a valid MongoDB ObjectId."),
   body("appointmentId").isMongoId().withMessage("appointmentId must be a valid MongoDB ObjectId."),
   body("visitSummary").trim().notEmpty().withMessage("visitSummary is required."),
   body("diagnosis").trim().notEmpty().withMessage("diagnosis is required."),

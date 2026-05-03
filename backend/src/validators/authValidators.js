@@ -8,7 +8,7 @@ const registerValidator = [
   body("name").trim().notEmpty().withMessage("name is required."),
   body("email").isEmail().withMessage("A valid email is required."),
   body("password").isLength({ min: 6 }).withMessage("password must be at least 6 characters."),
-  body("role").optional().isIn(ROLES).withMessage(`role must be one of: ${ROLES.join(", ")}.`),
+  body("role").optional().equals("admin").withMessage("Public setup registration can only create the initial admin account."),
 ];
 
 const patientRegisterValidator = [
@@ -27,6 +27,14 @@ const patientRegisterValidator = [
     .withMessage("nic must be a valid Sri Lankan NIC, for example 961234567V or 199612345678."),
   body("dateOfBirth").optional({ values: "falsy" }).isISO8601().withMessage("dateOfBirth must be a valid ISO date."),
   body("address").optional().trim(),
+  body("emergencyContact").optional().isObject().withMessage("emergencyContact must be an object."),
+  body("emergencyContact.name").optional({ values: "falsy" }).trim(),
+  body("emergencyContact.phone")
+    .optional({ values: "falsy" })
+    .trim()
+    .matches(PHONE_PATTERN)
+    .withMessage("emergency contact phone must be a valid Sri Lankan number."),
+  body("emergencyContact.relationship").optional({ values: "falsy" }).trim(),
 ];
 
 const loginValidator = [

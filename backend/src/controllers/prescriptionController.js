@@ -1,6 +1,9 @@
 const Appointment = require("../models/Appointment");
+const Doctor = require("../models/Doctor");
 const Prescription = require("../models/Prescription");
 const { deleteCloudinaryFile } = require("../multer/cloudinaryUpload");
+
+const PRESCRIPTION_ALLOWED_APPOINTMENT_STATUSES = ["confirmed", "completed"];
 
 function normalizePrescriptionPayload(body) {
   const payload = {
@@ -42,7 +45,78 @@ function applyPrescriptionPopulate(query) {
     .populate("appointmentId", "referenceId appointmentDate timeSlot status");
 }
 
-async function validatePrescriptionRelationship(payload, res) {
+async function getLoggedInDoctor(user) {
+  if (user.role !== "doctor") {
+    return null;
+  }
+
+  const linkedDoctor = await Doctor.findOne({ userId: user._id });
+
+  if (linkedDoctor) {
+    return linkedDoctor;
+  }
+
+  if (!user.email) {
+    return null;
+  }
+
+  return Doctor.findOne({ email: user.email.toLowerCase().trim() });
+}
+
+async function validateDoctorPrescriptionAccess(req, doctorId, res) {
+  if (req.user.role !== "doctor") {
+    return true;
+  }
+
+  const doctor = await getLoggedInDoctor(req.user);
+
+  if (!doctor) {
+    return res.status(404).json({
+      success: false,
+      message: "Doctor profile is not linked to this account.",
+    });
+  }
+
+  if (String(doctor._id) !== String(doctorId)) {
+    return res.status(403).json({
+      success: false,
+      message: "Doctors can only manage prescriptions assigned to their own doctor profile.",
+    });
+  }
+
+  return true;
+}
+
+function applyUserScope(req, filters) {
+  if (req.user.role !== "doctor") {
+    return filters;
+  }
+
+  return {
+    ...filters,
+    doctorId: req.doctorProfile._id,
+  };
+}
+
+async function attachDoctorProfileForScope(req, res) {
+  if (req.user.role !== "doctor") {
+    return true;
+  }
+
+  const doctor = await getLoggedInDoctor(req.user);
+
+  if (!doctor) {
+    return res.status(404).json({
+      success: false,
+      message: "Doctor profile is not linked to this account.",
+    });
+  }
+
+  req.doctorProfile = doctor;
+  return true;
+}
+
+async function validatePrescriptionRelationship(payload, res, options = {}) {
   if (!payload.appointmentId || !payload.patientId || !payload.doctorId) {
     return true;
   }
@@ -53,6 +127,16 @@ async function validatePrescriptionRelationship(payload, res) {
     return res.status(404).json({
       success: false,
       message: "Linked appointment not found.",
+    });
+  }
+
+  if (
+    options.requireAllowedAppointmentStatus &&
+    !PRESCRIPTION_ALLOWED_APPOINTMENT_STATUSES.includes(appointment.status)
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: "Prescription can only be created for confirmed or completed appointments.",
     });
   }
 
@@ -93,6 +177,12 @@ async function validateUniqueAppointmentPrescription(appointmentId, excludeId, r
 }
 
 async function listPrescriptions(req, res) {
+  const scoped = await attachDoctorProfileForScope(req, res);
+
+  if (scoped !== true) {
+    return scoped;
+  }
+
   const filters = {};
   const { patientId, doctorId, appointmentId, status } = req.query;
 
@@ -112,7 +202,7 @@ async function listPrescriptions(req, res) {
     filters.status = status;
   }
 
-  const prescriptions = await applyPrescriptionPopulate(Prescription.find(filters).sort({ createdAt: -1 })).lean();
+  const prescriptions = await applyPrescriptionPopulate(Prescription.find(applyUserScope(req, filters)).sort({ createdAt: -1 })).lean();
 
   return res.status(200).json({
     success: true,
@@ -122,7 +212,14 @@ async function listPrescriptions(req, res) {
 }
 
 async function getPrescription(req, res) {
-  const prescription = await applyPrescriptionPopulate(Prescription.findById(req.params.id)).lean();
+  const scoped = await attachDoctorProfileForScope(req, res);
+
+  if (scoped !== true) {
+    return scoped;
+  }
+
+  const filters = applyUserScope(req, { _id: req.params.id });
+  const prescription = await applyPrescriptionPopulate(Prescription.findOne(filters)).lean();
 
   if (!prescription) {
     return res.status(404).json({
@@ -140,7 +237,15 @@ async function getPrescription(req, res) {
 
 async function createPrescription(req, res) {
   const payload = normalizePrescriptionPayload(req.body);
-  const validRelationship = await validatePrescriptionRelationship(payload, res);
+  const validDoctorAccess = await validateDoctorPrescriptionAccess(req, payload.doctorId, res);
+
+  if (validDoctorAccess !== true) {
+    return validDoctorAccess;
+  }
+
+  const validRelationship = await validatePrescriptionRelationship(payload, res, {
+    requireAllowedAppointmentStatus: true,
+  });
 
   if (validRelationship !== true) {
     return validRelationship;
@@ -179,6 +284,12 @@ async function updatePrescription(req, res) {
     doctorId: payload.doctorId || prescription.doctorId,
   };
 
+  const validDoctorAccess = await validateDoctorPrescriptionAccess(req, mergedPayload.doctorId, res);
+
+  if (validDoctorAccess !== true) {
+    return validDoctorAccess;
+  }
+
   const validRelationship = await validatePrescriptionRelationship(mergedPayload, res);
 
   if (validRelationship !== true) {
@@ -216,6 +327,19 @@ async function deletePrescription(req, res) {
     });
   }
 
+  const validDoctorAccess = await validateDoctorPrescriptionAccess(req, prescription.doctorId, res);
+
+  if (validDoctorAccess !== true) {
+    return validDoctorAccess;
+  }
+
+  if (prescription.status !== "draft") {
+    return res.status(400).json({
+      success: false,
+      message: "Only draft prescriptions can be deleted. Issued prescriptions must be preserved for clinical history.",
+    });
+  }
+
   if (prescription.attachmentPublicId) {
     await deleteCloudinaryFile(prescription.attachmentPublicId, prescription.attachmentResourceType);
   }
@@ -237,6 +361,12 @@ async function uploadPrescriptionAttachment(req, res) {
       success: false,
       message: "Prescription not found.",
     });
+  }
+
+  const validDoctorAccess = await validateDoctorPrescriptionAccess(req, prescription.doctorId, res);
+
+  if (validDoctorAccess !== true) {
+    return validDoctorAccess;
   }
 
   if (!req.uploadedFile) {
@@ -272,6 +402,12 @@ async function deletePrescriptionAttachment(req, res) {
       success: false,
       message: "Prescription not found.",
     });
+  }
+
+  const validDoctorAccess = await validateDoctorPrescriptionAccess(req, prescription.doctorId, res);
+
+  if (validDoctorAccess !== true) {
+    return validDoctorAccess;
   }
 
   if (!prescription.attachmentUrl) {

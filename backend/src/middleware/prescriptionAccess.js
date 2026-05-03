@@ -1,6 +1,6 @@
-const { authenticate } = require("./auth");
+const { authenticate, authorizeRoles } = require("./auth");
 
 module.exports = {
-  requirePrescriptionReadAccess: authenticate,
-  requirePrescriptionWriteAccess: authenticate,
+  requirePrescriptionReadAccess: [authenticate, authorizeRoles("admin", "receptionist", "doctor")],
+  requirePrescriptionWriteAccess: [authenticate, authorizeRoles("admin", "doctor")],
 };

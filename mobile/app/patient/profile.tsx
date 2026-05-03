@@ -1,6 +1,6 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { StyleSheet, Text } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import { PatientAuthGate } from "@/components/patient/patient-auth-gate";
 import { AppButton } from "@/components/ui/app-button";
@@ -20,6 +20,9 @@ export default function PatientProfileScreen() {
   const [emergencyName, setEmergencyName] = useState("");
   const [emergencyPhone, setEmergencyPhone] = useState("");
   const [emergencyRelationship, setEmergencyRelationship] = useState("");
+  const [additionalAddresses, setAdditionalAddresses] = useState<{ label: string; address: string }[]>([]);
+  const [newAddressLabel, setNewAddressLabel] = useState("");
+  const [newAddressValue, setNewAddressValue] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +37,7 @@ export default function PatientProfileScreen() {
       setEmergencyName(data.emergencyContact?.name || "");
       setEmergencyPhone(data.emergencyContact?.phone || "");
       setEmergencyRelationship(data.emergencyContact?.relationship || "");
+      setAdditionalAddresses(data.additionalAddresses || []);
       setError(null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Unable to load profile.");
@@ -60,6 +64,7 @@ export default function PatientProfileScreen() {
           phone: emergencyPhone.trim(),
           relationship: emergencyRelationship.trim(),
         },
+        additionalAddresses,
       });
       setProfile(updated);
     } catch (saveError) {
@@ -67,6 +72,28 @@ export default function PatientProfileScreen() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function addAddress() {
+    if (!newAddressValue.trim()) {
+      setError("Additional address cannot be empty.");
+      return;
+    }
+
+    setAdditionalAddresses((current) => [
+      ...current,
+      {
+        label: newAddressLabel.trim() || "Other",
+        address: newAddressValue.trim(),
+      },
+    ]);
+    setNewAddressLabel("");
+    setNewAddressValue("");
+    setError(null);
+  }
+
+  function removeAddress(index: number) {
+    setAdditionalAddresses((current) => current.filter((_, itemIndex) => itemIndex !== index));
   }
 
   return (
@@ -87,6 +114,7 @@ export default function PatientProfileScreen() {
               <Text style={styles.meta}>NIC: {formatValue(profile.nic)}</Text>
               <Text style={styles.meta}>Date of birth: {formatDate(profile.dateOfBirth)}</Text>
               <Text style={styles.meta}>Gender: {formatValue(profile.gender)}</Text>
+              <Text style={styles.meta}>Age: {formatValue(profile.age)}</Text>
             </AppCard>
 
             <AppCard style={styles.card}>
@@ -97,6 +125,25 @@ export default function PatientProfileScreen() {
               <AppInput value={emergencyName} onChangeText={setEmergencyName} placeholder="Name" />
               <AppInput value={emergencyPhone} onChangeText={setEmergencyPhone} placeholder="Phone" keyboardType="phone-pad" />
               <AppInput value={emergencyRelationship} onChangeText={setEmergencyRelationship} placeholder="Relationship" />
+
+              <Text style={styles.title}>Additional addresses</Text>
+              {additionalAddresses.length === 0 ? (
+                <Text style={styles.meta}>No additional addresses added.</Text>
+              ) : (
+                additionalAddresses.map((item, index) => (
+                  <View key={`${item.label}-${index}`} style={styles.addressRow}>
+                    <View style={styles.addressText}>
+                      <Text style={styles.addressLabel}>{item.label || "Other"}</Text>
+                      <Text style={styles.meta}>{item.address}</Text>
+                    </View>
+                    <AppButton label="Remove" variant="secondary" onPress={() => removeAddress(index)} style={styles.removeButton} />
+                  </View>
+                ))
+              )}
+              <AppInput value={newAddressLabel} onChangeText={setNewAddressLabel} placeholder="Address label, for example Home" />
+              <AppInput value={newAddressValue} onChangeText={setNewAddressValue} placeholder="Additional address" multiline />
+              <AppButton label="Add address" variant="secondary" onPress={addAddress} />
+
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
               <AppButton label="Save profile" onPress={() => void saveProfile()} busy={saving} />
             </AppCard>
@@ -124,6 +171,28 @@ const styles = StyleSheet.create({
     color: AppColors.textMuted,
     fontSize: 14,
     lineHeight: 20,
+  },
+  addressRow: {
+    alignItems: "center",
+    borderColor: AppColors.border,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    padding: 12,
+  },
+  addressText: {
+    flex: 1,
+    gap: 2,
+  },
+  addressLabel: {
+    color: AppColors.text,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  removeButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   errorText: {
     color: AppColors.danger,

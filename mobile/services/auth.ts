@@ -1,4 +1,4 @@
-import { request, setAuthToken } from "@/services/api-client";
+import { request, setAuthToken, setRefreshToken } from "@/services/api-client";
 
 export type UserRole = "admin" | "doctor" | "receptionist" | "patient";
 export type UserStatus = "active" | "inactive";
@@ -31,11 +31,18 @@ export type PatientRegisterPayload = {
   nic: string;
   dateOfBirth?: string;
   address?: string;
+  emergencyContact?: {
+    name?: string;
+    phone?: string;
+    relationship?: string;
+  };
 };
 
 type AuthResponse = {
   user: User;
   token: string;
+  accessToken?: string;
+  refreshToken: string;
 };
 
 export async function login(payload: Pick<AuthPayload, "email" | "password">) {
@@ -43,7 +50,8 @@ export async function login(payload: Pick<AuthPayload, "email" | "password">) {
     method: "POST",
     body: JSON.stringify(payload),
   });
-  setAuthToken(session.token);
+  setAuthToken(session.accessToken || session.token);
+  setRefreshToken(session.refreshToken);
   return session;
 }
 
@@ -52,7 +60,8 @@ export async function register(payload: Required<AuthPayload>) {
     method: "POST",
     body: JSON.stringify(payload),
   });
-  setAuthToken(session.token);
+  setAuthToken(session.accessToken || session.token);
+  setRefreshToken(session.refreshToken);
   return session;
 }
 
@@ -64,12 +73,21 @@ export async function registerPatient(payload: PatientRegisterPayload) {
       age: Number(payload.age),
     }),
   });
-  setAuthToken(session.token);
+  setAuthToken(session.accessToken || session.token);
+  setRefreshToken(session.refreshToken);
   return session;
 }
 
-export function logout() {
+export async function logout(refreshToken?: string | null) {
+  if (refreshToken) {
+    await request<null>("/api/auth/logout", {
+      method: "POST",
+      body: JSON.stringify({ refreshToken }),
+    }).catch(() => null);
+  }
+
   setAuthToken(null);
+  setRefreshToken(null);
 }
 
 export function listUsers() {

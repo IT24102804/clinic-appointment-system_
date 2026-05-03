@@ -4,7 +4,7 @@ const PAYMENT_METHODS = ["cash", "card", "online", "insurance"];
 const PAYMENT_STATUSES = ["pending", "paid", "cancelled"];
 
 const createBillingValidator = [
-  body("patientId").isMongoId().withMessage("patientId must be a valid MongoDB ObjectId."),
+  body("patientId").optional().isMongoId().withMessage("patientId must be a valid MongoDB ObjectId."),
   body("appointmentId").isMongoId().withMessage("appointmentId must be a valid MongoDB ObjectId."),
   body("amount").isFloat({ min: 0 }).withMessage("amount must be a valid positive number."),
   body("billDate").isISO8601().withMessage("billDate must be a valid ISO date."),

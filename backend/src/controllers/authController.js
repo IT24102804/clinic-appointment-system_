@@ -1,8 +1,12 @@
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 
 const User = require("../models/User");
 const Patient = require("../models/Patient");
+
+const ACCESS_TOKEN_EXPIRES_IN = "15m";
+const REFRESH_TOKEN_DAYS = 7;
 
 function serializeUser(user) {
   return {
@@ -17,18 +21,52 @@ function serializeUser(user) {
   };
 }
 
-function signToken(user) {
+function signAccessToken(user) {
   return jwt.sign(
     {
       id: user._id,
       role: user.role,
     },
     process.env.JWT_SECRET,
-    { expiresIn: "7d" }
+    { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
   );
 }
 
+function createRefreshToken() {
+  return crypto.randomBytes(64).toString("hex");
+}
+
+function hashRefreshToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+async function issueSession(user) {
+  const accessToken = signAccessToken(user);
+  const refreshToken = createRefreshToken();
+  const refreshTokenExpiresAt = new Date(Date.now() + REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000);
+
+  user.refreshTokenHash = hashRefreshToken(refreshToken);
+  user.refreshTokenExpiresAt = refreshTokenExpiresAt;
+  await user.save();
+
+  return {
+    user: serializeUser(user),
+    token: accessToken,
+    accessToken,
+    refreshToken,
+  };
+}
+
 async function register(req, res) {
+  const adminExists = await User.exists({ role: "admin" });
+
+  if (adminExists) {
+    return res.status(403).json({
+      success: false,
+      message: "Public staff registration is disabled after initial setup. Ask an admin to create staff accounts.",
+    });
+  }
+
   const existingUser = await User.findOne({ email: req.body.email.toLowerCase().trim() });
 
   if (existingUser) {
@@ -43,17 +81,14 @@ async function register(req, res) {
     name: req.body.name.trim(),
     email: req.body.email.trim().toLowerCase(),
     passwordHash,
-    role: req.body.role || "receptionist",
+    role: "admin",
     status: "active",
   });
 
   return res.status(201).json({
     success: true,
-    message: "User registered successfully.",
-    data: {
-      user: serializeUser(user),
-      token: signToken(user),
-    },
+    message: "Initial admin account registered successfully.",
+    data: await issueSession(user),
   });
 }
 
@@ -101,16 +136,18 @@ async function registerPatient(req, res) {
     dateOfBirth: req.body.dateOfBirth ? new Date(req.body.dateOfBirth) : null,
     email,
     address: req.body.address?.trim() || "",
+    emergencyContact: {
+      name: req.body.emergencyContact?.name?.trim() || "",
+      phone: req.body.emergencyContact?.phone?.trim() || "",
+      relationship: req.body.emergencyContact?.relationship?.trim() || "",
+    },
     status: "active",
   });
 
   return res.status(201).json({
     success: true,
     message: "Patient registered successfully.",
-    data: {
-      user: serializeUser(user),
-      token: signToken(user),
-    },
+    data: await issueSession(user),
   });
 }
 
@@ -143,10 +180,52 @@ async function login(req, res) {
   return res.status(200).json({
     success: true,
     message: "Login successful.",
-    data: {
-      user: serializeUser(user),
-      token: signToken(user),
-    },
+    data: await issueSession(user),
+  });
+}
+
+async function refresh(req, res) {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    return res.status(400).json({
+      success: false,
+      message: "refreshToken is required.",
+    });
+  }
+
+  const user = await User.findOne({
+    refreshTokenHash: hashRefreshToken(refreshToken),
+    refreshTokenExpiresAt: { $gt: new Date() },
+    status: "active",
+  }).select("+refreshTokenHash +refreshTokenExpiresAt");
+
+  if (!user) {
+    return res.status(401).json({
+      success: false,
+      message: "Refresh token is invalid or expired.",
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "Token refreshed successfully.",
+    data: await issueSession(user),
+  });
+}
+
+async function logout(req, res) {
+  if (req.body.refreshToken) {
+    await User.updateOne(
+      { refreshTokenHash: hashRefreshToken(req.body.refreshToken) },
+      { $set: { refreshTokenHash: "", refreshTokenExpiresAt: null } }
+    );
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "Logged out successfully.",
+    data: null,
   });
 }
 
@@ -161,6 +240,8 @@ async function getMe(req, res) {
 module.exports = {
   getMe,
   login,
+  logout,
+  refresh,
   register,
   registerPatient,
 };

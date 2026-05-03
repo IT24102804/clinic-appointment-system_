@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createContext, PropsWithChildren, useContext, useEffect, useState } from "react";
 
-import { setAuthToken } from "@/services/api-client";
+import { setAuthToken, setRefreshSessionHandler, setRefreshToken } from "@/services/api-client";
 import {
   login as loginRequest,
   logout as clearRequestToken,
@@ -13,6 +13,7 @@ import {
 } from "@/services/auth";
 
 const TOKEN_KEY = "clinic-app-token";
+const REFRESH_TOKEN_KEY = "clinic-app-refresh-token";
 const USER_KEY = "clinic-app-user";
 
 type AuthContextValue = {
@@ -35,20 +36,42 @@ async function persistSession(token: string, user: User) {
   ]);
 }
 
+async function persistTokens(accessToken: string, refreshToken: string) {
+  setAuthToken(accessToken);
+  setRefreshToken(refreshToken);
+  await AsyncStorage.multiSet([
+    [TOKEN_KEY, accessToken],
+    [REFRESH_TOKEN_KEY, refreshToken],
+  ]);
+}
+
 export function AuthProvider({ children }: PropsWithChildren) {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
+  const [storedRefreshToken, setStoredRefreshToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
+    setRefreshSessionHandler(async (accessToken, nextRefreshToken) => {
+      await persistTokens(accessToken, nextRefreshToken);
+      setToken(accessToken);
+      setStoredRefreshToken(nextRefreshToken);
+    });
+
     async function restoreSession() {
       try {
-        const [[, storedToken], [, storedUser]] = await AsyncStorage.multiGet([TOKEN_KEY, USER_KEY]);
+        const [[, storedToken], [, restoredRefreshToken], [, storedUser]] = await AsyncStorage.multiGet([
+          TOKEN_KEY,
+          REFRESH_TOKEN_KEY,
+          USER_KEY,
+        ]);
 
         if (storedToken && storedUser) {
           const parsedUser = JSON.parse(storedUser) as User;
           setAuthToken(storedToken);
+          setRefreshToken(restoredRefreshToken);
           setToken(storedToken);
+          setStoredRefreshToken(restoredRefreshToken);
           setUser(parsedUser);
         }
       } finally {
@@ -57,37 +80,49 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
 
     void restoreSession();
+
+    return () => setRefreshSessionHandler(null);
   }, []);
 
   async function login(payload: Pick<AuthPayload, "email" | "password">) {
     const session = await loginRequest(payload);
-    await persistSession(session.token, session.user);
-    setToken(session.token);
+    const accessToken = session.accessToken || session.token;
+    await persistSession(accessToken, session.user);
+    await persistTokens(accessToken, session.refreshToken);
+    setToken(accessToken);
+    setStoredRefreshToken(session.refreshToken);
     setUser(session.user);
     return session.user;
   }
 
   async function registerStaff(payload: Required<AuthPayload>) {
     const session = await registerStaffRequest(payload);
-    await persistSession(session.token, session.user);
-    setToken(session.token);
+    const accessToken = session.accessToken || session.token;
+    await persistSession(accessToken, session.user);
+    await persistTokens(accessToken, session.refreshToken);
+    setToken(accessToken);
+    setStoredRefreshToken(session.refreshToken);
     setUser(session.user);
     return session.user;
   }
 
   async function registerPatient(payload: PatientRegisterPayload) {
     const session = await registerPatientRequest(payload);
-    await persistSession(session.token, session.user);
-    setToken(session.token);
+    const accessToken = session.accessToken || session.token;
+    await persistSession(accessToken, session.user);
+    await persistTokens(accessToken, session.refreshToken);
+    setToken(accessToken);
+    setStoredRefreshToken(session.refreshToken);
     setUser(session.user);
     return session.user;
   }
 
   async function logout() {
-    clearRequestToken();
+    await clearRequestToken(storedRefreshToken);
     setToken(null);
+    setStoredRefreshToken(null);
     setUser(null);
-    await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
+    await AsyncStorage.multiRemove([TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY]);
   }
 
   return (

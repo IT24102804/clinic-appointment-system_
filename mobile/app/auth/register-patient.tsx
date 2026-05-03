@@ -32,6 +32,11 @@ export default function PatientRegisterScreen() {
     nic: "",
     dateOfBirth: "",
     address: "",
+    emergencyContact: {
+      name: "",
+      phone: "",
+      relationship: "",
+    },
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -39,6 +44,16 @@ export default function PatientRegisterScreen() {
 
   function updateField<Key extends keyof PatientRegisterPayload>(key: Key, value: PatientRegisterPayload[Key]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateEmergencyField(key: "name" | "phone" | "relationship", value: string) {
+    setForm((current) => ({
+      ...current,
+      emergencyContact: {
+        ...(current.emergencyContact || {}),
+        [key]: value,
+      },
+    }));
   }
 
   function handleDateChange(event: DateTimePickerEvent, selectedDate?: Date) {
@@ -102,6 +117,20 @@ export default function PatientRegisterScreen() {
         ) : null}
 
         <AppInput value={form.address} onChangeText={(value) => updateField("address", value)} placeholder="Address" multiline />
+
+        <Text style={styles.label}>Emergency contact</Text>
+        <AppInput value={form.emergencyContact?.name || ""} onChangeText={(value) => updateEmergencyField("name", value)} placeholder="Emergency contact name" />
+        <AppInput
+          value={form.emergencyContact?.phone || ""}
+          onChangeText={(value) => updateEmergencyField("phone", value)}
+          placeholder="Emergency contact phone"
+          keyboardType="phone-pad"
+        />
+        <AppInput
+          value={form.emergencyContact?.relationship || ""}
+          onChangeText={(value) => updateEmergencyField("relationship", value)}
+          placeholder="Relationship"
+        />
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         <AppButton label="Create patient account" onPress={() => void submit()} busy={busy} />

@@ -9,9 +9,11 @@ Authorization: Bearer <jwt-token>
 ## Authentication
 | Method | Endpoint | Purpose | Access |
 | --- | --- | --- | --- |
-| POST | `/api/auth/register` | Register a staff user | Public |
+| POST | `/api/auth/register` | Create the first admin account only. Disabled after initial setup. | Public bootstrap only |
 | POST | `/api/auth/register-patient` | Register patient login and linked patient profile | Public |
 | POST | `/api/auth/login` | Login and receive JWT | Public |
+| POST | `/api/auth/refresh` | Rotate refresh token and receive a new access token | Public with valid refresh token |
+| POST | `/api/auth/logout` | Invalidate the current refresh token | Public with refresh token |
 | GET | `/api/auth/me` | Get current user | Protected |
 
 ## User Management

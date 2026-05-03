@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text } from "react-native";
 
 import { AppButton } from "@/components/ui/app-button";
 import { AppCard } from "@/components/ui/app-card";
@@ -9,13 +9,6 @@ import { AppScreen } from "@/components/ui/app-screen";
 import { PageHeader } from "@/components/ui/page-header";
 import { AppColors } from "@/constants/design";
 import { useAuthSession } from "@/context/auth-context";
-import { UserRole } from "@/services/auth";
-
-const roleOptions: { label: string; value: UserRole }[] = [
-  { label: "Admin", value: "admin" },
-  { label: "Doctor", value: "doctor" },
-  { label: "Receptionist", value: "receptionist" },
-];
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -23,7 +16,6 @@ export default function RegisterScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<UserRole>("admin");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +28,7 @@ export default function RegisterScreen() {
     try {
       setBusy(true);
       setError(null);
-      await registerStaff({ name: name.trim(), email: email.trim(), password, role });
+      await registerStaff({ name: name.trim(), email: email.trim(), password, role: "admin" });
       router.replace("/(tabs)");
     } catch (registerError) {
       setError(registerError instanceof Error ? registerError.message : "Unable to register.");
@@ -47,7 +39,11 @@ export default function RegisterScreen() {
 
   return (
     <AppScreen scroll contentContainerStyle={styles.screen}>
-      <PageHeader eyebrow="User management" title="Create staff account" subtitle="Register an admin, doctor, or receptionist account." />
+      <PageHeader
+        eyebrow="Initial setup"
+        title="Create first admin"
+        subtitle="This public setup screen only works before any account exists. After setup, admins create staff from Staff Accounts."
+      />
 
       <AppCard style={styles.card}>
         <AppInput value={name} onChangeText={setName} placeholder="Full name" />
@@ -55,17 +51,7 @@ export default function RegisterScreen() {
         <AppInput value={password} onChangeText={setPassword} placeholder="Password" secureTextEntry />
 
         <Text style={styles.label}>Role</Text>
-        <View style={styles.options}>
-          {roleOptions.map((option) => (
-            <AppButton
-              key={option.value}
-              label={option.label}
-              onPress={() => setRole(option.value)}
-              variant={role === option.value ? "primary" : "secondary"}
-              style={styles.optionButton}
-            />
-          ))}
-        </View>
+        <Text style={styles.helperText}>Initial setup always creates an Admin account.</Text>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         <AppButton label="Create account" onPress={() => void submit()} busy={busy} />
@@ -87,14 +73,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
   },
-  options: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  optionButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+  helperText: {
+    color: AppColors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
   },
   errorText: {
     color: AppColors.danger,

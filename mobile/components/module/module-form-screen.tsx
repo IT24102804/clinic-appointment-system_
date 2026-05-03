@@ -98,6 +98,10 @@ function toTimePayload(value: Date) {
   });
 }
 
+function isMongoObjectId(value: string) {
+  return /^[a-f\d]{24}$/i.test(value);
+}
+
 function formatAppointmentOption(appointment: CrudRecord) {
   const patient = formatRef(appointment.patientId);
   const doctor = formatRef(appointment.doctorId);
@@ -391,6 +395,17 @@ export function ModuleFormScreen<TRecord extends CrudRecord>({ config, service, 
 
     if (missingField) {
       setError(`${missingField.label} is required.`);
+      return;
+    }
+
+    const malformedReference = config.fields.find(
+      (field) => field.type === "reference" && form[field.key]?.trim() && !isMongoObjectId(form[field.key].trim())
+    );
+
+    if (malformedReference) {
+      setError(
+        `${malformedReference.label} is not a valid database ID. Select a valid linked record again before saving.`
+      );
       return;
     }
 

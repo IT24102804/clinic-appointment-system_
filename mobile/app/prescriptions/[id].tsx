@@ -119,10 +119,10 @@ export default function PrescriptionDetailsScreen() {
       return;
     }
 
-    Alert.alert("Delete prescription", "This will permanently remove the prescription record.", [
+    Alert.alert("Delete draft prescription", "Only draft prescriptions can be deleted. Issued prescriptions are preserved for clinical history.", [
       { text: "Cancel", style: "cancel" },
       {
-        text: "Delete",
+        text: "Delete draft",
         style: "destructive",
         onPress: async () => {
           try {
@@ -274,7 +274,7 @@ export default function PrescriptionDetailsScreen() {
           }
         />
         <AppButton
-          label={busyAction === "delete" ? "Deleting..." : "Delete prescription"}
+          label={busyAction === "delete" ? "Deleting..." : "Delete draft prescription"}
           onPress={handleDeletePrescription}
           variant="danger"
           busy={busyAction === "delete"}

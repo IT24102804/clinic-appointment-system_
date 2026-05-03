@@ -2,6 +2,8 @@ const Appointment = require("../models/Appointment");
 const Doctor = require("../models/Doctor");
 const Prescription = require("../models/Prescription");
 
+const PRESCRIPTION_ALLOWED_APPOINTMENT_STATUSES = ["confirmed", "completed"];
+
 async function getLoggedInDoctor(user) {
   const linkedDoctor = await Doctor.findOne({ userId: user._id });
 
@@ -95,6 +97,13 @@ async function createPrescriptionForAppointment(req, res) {
 
   if (!appointment) {
     return res.status(404).json({ success: false, message: "Appointment not found." });
+  }
+
+  if (!PRESCRIPTION_ALLOWED_APPOINTMENT_STATUSES.includes(appointment.status)) {
+    return res.status(400).json({
+      success: false,
+      message: "Prescription can only be created for confirmed or completed appointments.",
+    });
   }
 
   const existingPrescription = await Prescription.findOne({ appointmentId: appointment._id }).lean();

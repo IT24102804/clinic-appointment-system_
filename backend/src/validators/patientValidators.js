@@ -53,7 +53,16 @@ const updateMyPatientValidator = [
   body("address").optional({ values: "null" }).isString().withMessage("address must be text."),
   body("dateOfBirth").optional({ values: "falsy" }).isISO8601().withMessage("dateOfBirth must be a valid ISO date."),
   body("additionalAddresses").optional().isArray().withMessage("additionalAddresses must be an array."),
+  body("additionalAddresses.*.label").optional({ values: "falsy" }).trim(),
+  body("additionalAddresses.*.address").optional().trim().notEmpty().withMessage("additional address cannot be empty."),
   body("emergencyContact").optional().isObject().withMessage("emergencyContact must be an object."),
+  body("emergencyContact.name").optional({ values: "falsy" }).trim(),
+  body("emergencyContact.phone")
+    .optional({ values: "falsy" })
+    .trim()
+    .matches(PHONE_PATTERN)
+    .withMessage("emergency contact phone must be a valid Sri Lankan number."),
+  body("emergencyContact.relationship").optional({ values: "falsy" }).trim(),
 ];
 
 const patientQueryValidator = [
