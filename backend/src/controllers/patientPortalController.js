@@ -9,10 +9,40 @@ const { deleteCloudinaryFile } = require("../multer/cloudinaryUpload");
 
 const DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 const BOOKED_STATUSES = ["booked", "pending", "confirmed", "rescheduled", "completed"];
+const PATIENT_VISIBLE_PRESCRIPTION_STATUSES = ["issued", "cancelled"];
 
 function minutesFromTime(value) {
   const [hours, minutes] = String(value).split(":").map(Number);
   return hours * 60 + minutes;
+}
+
+function minutesFromAppointmentSlot(value) {
+  const startValue = String(value).split("-")[0].trim();
+  const twelveHourMatch = startValue.match(/^(\d{1,2}):(\d{2})\s?(AM|PM)$/i);
+
+  if (twelveHourMatch) {
+    let hours = Number(twelveHourMatch[1]);
+    const minutes = Number(twelveHourMatch[2]);
+    const meridiem = twelveHourMatch[3].toUpperCase();
+
+    if (meridiem === "PM" && hours < 12) {
+      hours += 12;
+    }
+
+    if (meridiem === "AM" && hours === 12) {
+      hours = 0;
+    }
+
+    return hours * 60 + minutes;
+  }
+
+  const twentyFourHourMatch = startValue.match(/^([01][0-9]|2[0-3]):([0-5][0-9])$/);
+
+  if (!twentyFourHourMatch) {
+    return null;
+  }
+
+  return Number(twentyFourHourMatch[1]) * 60 + Number(twentyFourHourMatch[2]);
 }
 
 function formatSlot(totalMinutes) {
@@ -34,6 +64,28 @@ function getDateRange(dateValue) {
   const end = new Date(start);
   end.setDate(end.getDate() + 1);
   return { start, end };
+}
+
+function isInsideDoctorAvailability(doctor, appointmentDate, timeSlot) {
+  const date = new Date(appointmentDate);
+  const slotMinutes = minutesFromAppointmentSlot(timeSlot);
+
+  if (Number.isNaN(date.getTime()) || slotMinutes === null) {
+    return false;
+  }
+
+  const dayKey = DAY_KEYS[date.getDay()];
+
+  return (doctor.availability || []).some((item) => {
+    if (item.dayOfWeek !== dayKey) {
+      return false;
+    }
+
+    const startMinutes = minutesFromTime(item.startTime);
+    const endMinutes = minutesFromTime(item.endTime);
+
+    return slotMinutes >= startMinutes && slotMinutes < endMinutes;
+  });
 }
 
 async function getLoggedInPatient(userId) {
@@ -129,6 +181,22 @@ async function createPatientAppointment(req, res) {
   }
 
   const appointmentDate = new Date(req.body.appointmentDate);
+  const doctor = await Doctor.findById(req.body.doctorId).select("status availabilityStatus availability").lean();
+
+  if (!doctor || doctor.status !== "active" || doctor.availabilityStatus !== "available") {
+    return res.status(400).json({
+      success: false,
+      message: "Appointment can only be requested with an active and available doctor.",
+    });
+  }
+
+  if (!isInsideDoctorAvailability(doctor, appointmentDate, req.body.timeSlot)) {
+    return res.status(400).json({
+      success: false,
+      message: "Selected appointment time is outside the doctor's availability.",
+    });
+  }
+
   const { start, end } = getDateRange(appointmentDate);
   const existingAppointment = await Appointment.findOne({
     doctorId: req.body.doctorId,
@@ -208,7 +276,10 @@ async function listMyPrescriptions(req, res) {
     return res.status(404).json({ success: false, message: "Patient profile not found for this account." });
   }
 
-  const prescriptions = await Prescription.find({ patientId: patient._id })
+  const prescriptions = await Prescription.find({
+    patientId: patient._id,
+    status: { $in: PATIENT_VISIBLE_PRESCRIPTION_STATUSES },
+  })
     .sort({ createdAt: -1 })
     .populate("doctorId", "referenceId fullName specialization")
     .populate("appointmentId", "referenceId appointmentDate timeSlot status")
@@ -224,7 +295,11 @@ async function getMyPrescription(req, res) {
     return res.status(404).json({ success: false, message: "Patient profile not found for this account." });
   }
 
-  const prescription = await Prescription.findOne({ _id: req.params.id, patientId: patient._id })
+  const prescription = await Prescription.findOne({
+    _id: req.params.id,
+    patientId: patient._id,
+    status: { $in: PATIENT_VISIBLE_PRESCRIPTION_STATUSES },
+  })
     .populate("doctorId", "referenceId fullName specialization")
     .populate("appointmentId", "referenceId appointmentDate timeSlot status")
     .lean();

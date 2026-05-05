@@ -14,7 +14,19 @@ const authenticate = asyncHandler(async (req, res, next) => {
     });
   }
 
-  const decoded = jwt.verify(token, process.env.JWT_SECRET);
+  let decoded;
+
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message:
+        error.name === "TokenExpiredError"
+          ? "Authentication token expired."
+          : "Authentication token is invalid.",
+    });
+  }
   const user = await User.findById(decoded.id).select("-passwordHash");
 
   if (!user || user.status !== "active") {

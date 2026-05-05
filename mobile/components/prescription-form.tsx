@@ -21,6 +21,7 @@ type PrescriptionFormProps = {
 };
 
 const STATUS_OPTIONS: PrescriptionStatus[] = ["draft", "issued", "cancelled"];
+const PRESCRIPTION_APPOINTMENT_STATUSES = new Set(["confirmed", "completed"]);
 
 const EMPTY_MEDICINE: MedicineItem = {
   name: "",
@@ -77,6 +78,18 @@ function toDatePayload(value: Date) {
   return value.toISOString();
 }
 
+function getAppointmentStatus(appointment: CrudRecord) {
+  return typeof appointment.status === "string" ? appointment.status : "";
+}
+
+function isPrescriptionAppointmentOption(appointment: CrudRecord, selectedAppointmentId?: string) {
+  return appointment._id === selectedAppointmentId || PRESCRIPTION_APPOINTMENT_STATUSES.has(getAppointmentStatus(appointment));
+}
+
+function getAppointmentSchedule(appointment: CrudRecord) {
+  return `${formatDate(appointment.appointmentDate)} ${appointment.timeSlot || ""}`.trim() || "No date/time set";
+}
+
 export function PrescriptionForm({
   initialValue,
   submitLabel,
@@ -88,11 +101,13 @@ export function PrescriptionForm({
   const [appointments, setAppointments] = useState<CrudRecord[]>([]);
   const [loadingAppointments, setLoadingAppointments] = useState(false);
   const [appointmentError, setAppointmentError] = useState<string | null>(null);
+  const [showAppointmentOptions, setShowAppointmentOptions] = useState(() => !initialValue?.appointmentId);
   const [showIssuedDatePicker, setShowIssuedDatePicker] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     setForm(cloneFormValue(initialValue));
+    setShowAppointmentOptions(!initialValue?.appointmentId);
   }, [initialValue]);
 
   useEffect(() => {
@@ -121,6 +136,10 @@ export function PrescriptionForm({
     () => appointments.find((appointment) => appointment._id === form.appointmentId),
     [appointments, form.appointmentId]
   );
+  const appointmentOptions = useMemo(
+    () => appointments.filter((appointment) => isPrescriptionAppointmentOption(appointment, form.appointmentId)),
+    [appointments, form.appointmentId]
+  );
 
   function updateField<Key extends keyof PrescriptionPayload>(key: Key, value: PrescriptionPayload[Key]) {
     setForm((current) => ({
@@ -136,6 +155,7 @@ export function PrescriptionForm({
       patientId: getRefId(appointment.patientId),
       doctorId: getRefId(appointment.doctorId),
     }));
+    setShowAppointmentOptions(false);
   }
 
   function handleIssuedDateChange(event: DateTimePickerEvent, selectedDate?: Date) {
@@ -227,34 +247,61 @@ export function PrescriptionForm({
       {!loadingAppointments && appointments.length === 0 ? (
         <Text style={styles.helperText}>Create an appointment first. Prescriptions are linked to an appointment, patient, and doctor.</Text>
       ) : null}
-      <View style={styles.referenceList}>
-        {appointments.map((appointment) => {
-          const selected = form.appointmentId === appointment._id;
-          const label = `${formatDate(appointment.appointmentDate)} ${appointment.timeSlot || ""}`.trim();
+      {!loadingAppointments && showAppointmentOptions && appointments.length > 0 && appointmentOptions.length === 0 ? (
+        <Text style={styles.helperText}>
+          Confirm or complete an appointment first. Prescriptions can only be created for confirmed or completed visits.
+        </Text>
+      ) : null}
+      {showAppointmentOptions ? (
+        <View style={styles.referenceList}>
+          {appointmentOptions.map((appointment) => {
+            const selected = form.appointmentId === appointment._id;
+            const status = getAppointmentStatus(appointment) || "unknown";
 
-          return (
-            <AppButton
-              key={appointment._id}
-              label={label || appointment._id}
-              onPress={() => selectAppointment(appointment)}
-              variant={selected ? "primary" : "secondary"}
-            />
-          );
-        })}
-      </View>
-      <AppInput placeholder="Appointment ID" value={form.appointmentId || "Select appointment"} editable={false} autoCapitalize="none" />
-      <AppInput
-        placeholder="Patient"
-        value={form.patientId ? (selectedAppointment ? formatRef(selectedAppointment.patientId) : form.patientId) : "Select appointment"}
-        editable={false}
-      />
-      <Text style={styles.helperText}>Patient ID: {form.patientId || "Not selected"}</Text>
-      <AppInput
-        placeholder="Doctor"
-        value={form.doctorId ? (selectedAppointment ? formatRef(selectedAppointment.doctorId) : form.doctorId) : "Select appointment"}
-        editable={false}
-      />
-      <Text style={styles.helperText}>Doctor ID: {form.doctorId || "Not selected"}</Text>
+            return (
+              <AppCard key={appointment._id} muted style={[styles.appointmentOption, selected && styles.selectedAppointmentOption]}>
+                <View style={styles.appointmentHeader}>
+                  <Text style={styles.appointmentTitle}>{formatRef(appointment.patientId)}</Text>
+                  <Text style={styles.statusPill}>{status.toUpperCase()}</Text>
+                </View>
+                <Text style={styles.appointmentMeta}>Doctor: {formatRef(appointment.doctorId)}</Text>
+                <Text style={styles.appointmentMeta}>Visit: {getAppointmentSchedule(appointment)}</Text>
+                <Text style={styles.appointmentId}>Appointment ID: {appointment.referenceId || appointment._id}</Text>
+                <AppButton
+                  label={selected ? "Selected visit" : "Select this visit"}
+                  onPress={() => selectAppointment(appointment)}
+                  variant={selected ? "primary" : "secondary"}
+                  style={styles.selectVisitButton}
+                />
+              </AppCard>
+            );
+          })}
+        </View>
+      ) : null}
+      {form.appointmentId ? (
+        <AppCard muted style={styles.selectedVisitCard}>
+          <Text style={styles.selectedVisitTitle}>Selected visit summary</Text>
+          <Text style={styles.selectedVisitText}>
+            Appointment: {selectedAppointment?.referenceId || form.appointmentId}
+          </Text>
+          <Text style={styles.selectedVisitText}>
+            Patient: {selectedAppointment ? formatRef(selectedAppointment.patientId) : form.patientId}
+          </Text>
+          <Text style={styles.selectedVisitId}>Patient ID: {form.patientId || "Not selected"}</Text>
+          <Text style={styles.selectedVisitText}>
+            Doctor: {selectedAppointment ? formatRef(selectedAppointment.doctorId) : form.doctorId}
+          </Text>
+          <Text style={styles.selectedVisitId}>Doctor ID: {form.doctorId || "Not selected"}</Text>
+          <AppButton
+            label="Change appointment"
+            onPress={() => setShowAppointmentOptions(true)}
+            variant="secondary"
+            style={styles.changeVisitButton}
+          />
+        </AppCard>
+      ) : (
+        <Text style={styles.helperText}>Select one confirmed/completed appointment. Patient and doctor are linked automatically.</Text>
+      )}
 
       <Text style={styles.sectionLabel}>Clinical details</Text>
       <AppInput placeholder="Diagnosis" value={form.diagnosis} onChangeText={(value) => updateField("diagnosis", value)} />
@@ -356,6 +403,75 @@ const styles = StyleSheet.create({
   },
   referenceList: {
     gap: 8,
+  },
+  appointmentOption: {
+    gap: 10,
+    padding: 14,
+  },
+  selectedAppointmentOption: {
+    borderColor: AppColors.accent,
+    borderWidth: 2,
+  },
+  appointmentHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "space-between",
+  },
+  appointmentTitle: {
+    color: AppColors.text,
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "800",
+    lineHeight: 21,
+  },
+  appointmentMeta: {
+    color: AppColors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  appointmentId: {
+    color: AppColors.accent,
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 17,
+  },
+  statusPill: {
+    backgroundColor: AppColors.accentSoft,
+    borderRadius: 999,
+    color: AppColors.accent,
+    fontSize: 11,
+    fontWeight: "900",
+    overflow: "hidden",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  selectVisitButton: {
+    paddingVertical: 11,
+  },
+  selectedVisitCard: {
+    gap: 6,
+    padding: 14,
+  },
+  selectedVisitTitle: {
+    color: AppColors.text,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  selectedVisitText: {
+    color: AppColors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  selectedVisitId: {
+    color: AppColors.accent,
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 17,
+  },
+  changeVisitButton: {
+    marginTop: 4,
+    paddingVertical: 11,
   },
   helperText: {
     color: AppColors.textMuted,

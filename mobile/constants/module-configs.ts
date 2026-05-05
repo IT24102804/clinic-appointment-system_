@@ -14,7 +14,6 @@ export const moduleConfigs = {
     attachmentLabel: "Patient document",
     fields: [
       { key: "fullName", label: "Full name", required: true },
-      { key: "age", label: "Age", required: true, type: "number" },
       {
         key: "gender",
         label: "Gender",
@@ -30,18 +29,19 @@ export const moduleConfigs = {
       { key: "dateOfBirth", label: "Date of birth", required: true, type: "date" },
       { key: "nic", label: "NIC" },
       { key: "email", label: "Email" },
-      { key: "address", label: "Address", type: "multiline" },
+      { key: "address", label: "Address", required: true, type: "multiline" },
       {
         key: "status",
         label: "Status",
         type: "select",
+        visibleIn: ["edit"],
         options: [
           { label: "Active", value: "active" },
           { label: "Inactive", value: "inactive" },
         ],
       },
     ],
-    defaultValues: { fullName: "", age: "", gender: "female", phone: "", dateOfBirth: "", nic: "", email: "", address: "", status: "active" },
+    defaultValues: { fullName: "", gender: "female", phone: "", dateOfBirth: "", nic: "", email: "", address: "", status: "active" },
     getCardTitle: (record) => formatValue(record.fullName),
     getCardSubtitle: (record) => `${formatValue(record.referenceId)} | ${formatValue(record.phone)} | ${formatValue(record.status)}`,
     getDetailRows: (record) => [

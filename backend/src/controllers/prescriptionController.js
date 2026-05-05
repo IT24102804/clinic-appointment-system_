@@ -319,7 +319,9 @@ async function updatePrescription(req, res) {
     });
   }
 
-  const payload = await buildTrustedPrescriptionPayload(req.body, prescription.appointmentId, res);
+  const payload = await buildTrustedPrescriptionPayload(req.body, prescription.appointmentId, res, {
+    requireAllowedAppointmentStatus: true,
+  });
 
   if (!payload) {
     return undefined;
@@ -347,6 +349,13 @@ async function updatePrescription(req, res) {
 
   if (uniqueAppointmentPrescription !== true) {
     return uniqueAppointmentPrescription;
+  }
+
+  if (prescription.status === "issued" && payload.status === "draft") {
+    return res.status(400).json({
+      success: false,
+      message: "Issued prescriptions cannot be changed back to draft.",
+    });
   }
 
   if (payload.status === "issued" && !payload.issuedAt && !prescription.issuedAt) {

@@ -49,6 +49,7 @@ export type FieldConfig = {
   options?: FieldOption[];
   placeholder?: string;
   readOnly?: boolean;
+  visibleIn?: ("create" | "edit")[];
 };
 
 export type ModuleConfig = {

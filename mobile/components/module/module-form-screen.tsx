@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "@/components/ui/app-button";
@@ -64,6 +64,12 @@ function toDateValue(value: string) {
 
 function toDatePayload(value: Date) {
   return value.toISOString().slice(0, 10);
+}
+
+function getMinimumAgeDate(minAge: number) {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - minAge);
+  return date;
 }
 
 function toTimeValue(value: string) {
@@ -133,11 +139,17 @@ export function ModuleFormScreen<TRecord extends CrudRecord>({ config, service, 
     doctors: [],
     appointments: [],
   });
+  const [visibleReferenceOptions, setVisibleReferenceOptions] = useState<Record<string, boolean>>({});
+  const [referenceSearches, setReferenceSearches] = useState<Record<string, string>>({});
   const [referencesLoading, setReferencesLoading] = useState(false);
   const [datePickerField, setDatePickerField] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasToken = Boolean(getAuthToken());
+  const visibleFields = useMemo(
+    () => config.fields.filter((field) => !field.visibleIn || field.visibleIn.includes(mode)),
+    [config.fields, mode]
+  );
 
   useEffect(() => {
     if (!getAuthToken()) {
@@ -145,7 +157,7 @@ export function ModuleFormScreen<TRecord extends CrudRecord>({ config, service, 
     }
 
     const referenceKeys = Array.from(
-      new Set(config.fields.map((field) => field.reference).filter(Boolean))
+      new Set(visibleFields.map((field) => field.reference).filter(Boolean))
     ) as ReferenceKey[];
 
     if (referenceKeys.length === 0) {
@@ -168,7 +180,7 @@ export function ModuleFormScreen<TRecord extends CrudRecord>({ config, service, 
     }
 
     void loadReferences();
-  }, [config.fields]);
+  }, [visibleFields]);
 
   useEffect(() => {
     if (!getAuthToken()) {
@@ -220,11 +232,11 @@ export function ModuleFormScreen<TRecord extends CrudRecord>({ config, service, 
           const patientId = getRefId(selectedAppointment.patientId);
           const doctorId = getRefId(selectedAppointment.doctorId);
 
-          if (patientId && config.fields.some((field) => field.key === "patientId")) {
+          if (patientId && visibleFields.some((field) => field.key === "patientId")) {
             next.patientId = patientId;
           }
 
-          if (doctorId && config.fields.some((field) => field.key === "doctorId")) {
+          if (doctorId && visibleFields.some((field) => field.key === "doctorId")) {
             next.doctorId = doctorId;
           }
 
@@ -232,7 +244,7 @@ export function ModuleFormScreen<TRecord extends CrudRecord>({ config, service, 
 
           if (
             sessionFee !== undefined &&
-            config.fields.some((field) => field.key === "amount")
+            visibleFields.some((field) => field.key === "amount")
           ) {
             next.amount = String(sessionFee);
           }
@@ -297,6 +309,8 @@ export function ModuleFormScreen<TRecord extends CrudRecord>({ config, service, 
     }
 
     if (field.type === "date") {
+      const maximumDate = config.key === "patients" && field.key === "dateOfBirth" ? getMinimumAgeDate(16) : undefined;
+
       return (
         <View style={styles.datePickerGroup}>
           <Text style={styles.referenceNote}>{form[field.key] ? formatDate(form[field.key]) : "No date selected"}</Text>
@@ -306,6 +320,7 @@ export function ModuleFormScreen<TRecord extends CrudRecord>({ config, service, 
               value={toDateValue(form[field.key] ?? "")}
               mode="date"
               display="default"
+              maximumDate={maximumDate}
               onChange={(event, selectedDate) => handleDateChange(field, event, selectedDate)}
             />
           ) : null}
@@ -354,26 +369,84 @@ export function ModuleFormScreen<TRecord extends CrudRecord>({ config, service, 
         );
       }
 
-      return (
-        <View style={styles.referenceList}>
-          {options.map((option) => {
-            const selected = form[field.key] === option._id;
-            const label =
-              field.reference === "appointments"
-                ? formatAppointmentOption(option)
-                : formatRef(option);
+      const selectedValue = form[field.key] ?? "";
+      const showOptions = visibleReferenceOptions[field.key] ?? !selectedValue;
+      const searchValue = referenceSearches[field.key] ?? "";
+      const optionLabel = (option: CrudRecord) =>
+        field.reference === "appointments"
+          ? formatAppointmentOption(option)
+          : formatRef(option);
+      const filteredOptions = options.filter((option) =>
+        optionLabel(option).toLowerCase().includes(searchValue.trim().toLowerCase())
+      );
+      const visibleOptions = searchValue.trim() ? filteredOptions : filteredOptions.slice(0, 8);
 
-            return (
+      return (
+        <>
+          {!showOptions && selectedValue ? (
+            <AppCard muted style={styles.selectedReferenceCard}>
+              <Text style={styles.selectedReferenceLabel}>Selected {field.label.toLowerCase()}</Text>
+              <Text style={styles.selectedReferenceText}>{getReferenceLabel(field, selectedValue)}</Text>
               <AppButton
-                key={option._id}
-                label={label || option._id}
-                onPress={() => updateField(field.key, option._id)}
-                variant={selected ? "primary" : "secondary"}
+                label={`Change ${field.label.toLowerCase()}`}
+                onPress={() =>
+                  setVisibleReferenceOptions((current) => ({
+                    ...current,
+                    [field.key]: true,
+                  }))
+                }
+                variant="secondary"
+                style={styles.changeReferenceButton}
               />
-            );
-          })}
-          {form[field.key] ? <Text style={styles.referenceNote}>Selected ID: {form[field.key]}</Text> : null}
-        </View>
+            </AppCard>
+          ) : null}
+          {showOptions ? (
+            <View style={styles.referenceList}>
+              <AppInput
+                value={searchValue}
+                onChangeText={(value) =>
+                  setReferenceSearches((current) => ({
+                    ...current,
+                    [field.key]: value,
+                  }))
+                }
+                placeholder={`Search ${field.label.toLowerCase()}`}
+                autoCapitalize="none"
+              />
+              {!searchValue.trim() && filteredOptions.length > visibleOptions.length ? (
+                <Text style={styles.referenceNote}>
+                  Showing first {visibleOptions.length} records. Search by name, reference, date, or phone to find more.
+                </Text>
+              ) : null}
+              {searchValue.trim() && visibleOptions.length === 0 ? (
+                <Text style={styles.referenceNote}>No {field.label.toLowerCase()} records match your search.</Text>
+              ) : null}
+              {visibleOptions.map((option) => {
+                const selected = form[field.key] === option._id;
+                const label = optionLabel(option);
+
+                return (
+                  <AppButton
+                    key={option._id}
+                    label={label || option._id}
+                    onPress={() => {
+                      updateField(field.key, option._id);
+                      setVisibleReferenceOptions((current) => ({
+                        ...current,
+                        [field.key]: false,
+                      }));
+                      setReferenceSearches((current) => ({
+                        ...current,
+                        [field.key]: "",
+                      }));
+                    }}
+                    variant={selected ? "primary" : "secondary"}
+                  />
+                );
+              })}
+            </View>
+          ) : null}
+        </>
       );
     }
 
@@ -391,14 +464,14 @@ export function ModuleFormScreen<TRecord extends CrudRecord>({ config, service, 
   }
 
   async function submit() {
-    const missingField = config.fields.find((field) => field.required && !form[field.key]?.trim());
+    const missingField = visibleFields.find((field) => field.required && !form[field.key]?.trim());
 
     if (missingField) {
       setError(`${missingField.label} is required.`);
       return;
     }
 
-    const malformedReference = config.fields.find(
+    const malformedReference = visibleFields.find(
       (field) => field.type === "reference" && form[field.key]?.trim() && !isMongoObjectId(form[field.key].trim())
     );
 
@@ -409,7 +482,7 @@ export function ModuleFormScreen<TRecord extends CrudRecord>({ config, service, 
       return;
     }
 
-    const payload = config.fields.reduce<Record<string, unknown>>((values, field) => {
+    const payload = visibleFields.reduce<Record<string, unknown>>((values, field) => {
       values[field.key] = coerceValue(field, form[field.key]?.trim() ?? "");
       return values;
     }, {});
@@ -452,7 +525,7 @@ export function ModuleFormScreen<TRecord extends CrudRecord>({ config, service, 
       />
 
       <AppCard style={styles.formCard}>
-        {config.fields.map((field) => (
+        {visibleFields.map((field) => (
           <View key={field.key} style={styles.fieldGroup}>
             <Text style={styles.label}>{field.label}{field.required ? " *" : ""}</Text>
             {renderField(field)}
@@ -499,6 +572,27 @@ const styles = StyleSheet.create({
   },
   referenceList: {
     gap: 8,
+  },
+  selectedReferenceCard: {
+    gap: 8,
+    padding: 14,
+  },
+  selectedReferenceLabel: {
+    color: AppColors.accent,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  selectedReferenceText: {
+    color: AppColors.text,
+    fontSize: 15,
+    fontWeight: "800",
+    lineHeight: 21,
+  },
+  changeReferenceButton: {
+    marginTop: 4,
+    paddingVertical: 11,
   },
   readOnlyReference: {
     gap: 6,

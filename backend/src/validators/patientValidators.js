@@ -1,5 +1,5 @@
 const { body, query } = require("express-validator");
-const { NIC_PATTERN, PHONE_PATTERN } = require("../utils/validationPatterns");
+const { isAtLeastAge, NIC_PATTERN, PHONE_PATTERN } = require("../utils/validationPatterns");
 
 const GENDERS = ["male", "female", "other"];
 const STATUSES = ["active", "inactive"];
@@ -20,7 +20,6 @@ function hasCompleteEmergencyContact(value) {
 
 const createPatientValidator = [
   body("fullName").trim().notEmpty().withMessage("fullName is required."),
-  body("age").isInt({ min: 16 }).withMessage("age must be 16 or above."),
   body("gender").isIn(GENDERS).withMessage(`gender must be one of: ${GENDERS.join(", ")}.`),
   body("phone")
     .trim()
@@ -31,7 +30,12 @@ const createPatientValidator = [
     .trim()
     .matches(NIC_PATTERN)
     .withMessage("nic must be a valid Sri Lankan NIC, for example 961234567V or 199612345678."),
-  body("dateOfBirth").isISO8601().withMessage("dateOfBirth must be a valid ISO date."),
+  body("dateOfBirth")
+    .isISO8601()
+    .withMessage("dateOfBirth must be a valid ISO date.")
+    .bail()
+    .custom(isAtLeastAge(16))
+    .withMessage("patient must be 16 years old or above."),
   body("email").optional({ values: "falsy" }).isEmail().withMessage("email must be valid."),
   body("address").trim().notEmpty().withMessage("address is required."),
   body("status").optional().isIn(STATUSES).withMessage(`status must be one of: ${STATUSES.join(", ")}.`),
@@ -39,7 +43,6 @@ const createPatientValidator = [
 
 const updatePatientValidator = [
   body("fullName").optional().trim().notEmpty().withMessage("fullName cannot be empty."),
-  body("age").optional().isInt({ min: 16 }).withMessage("age must be 16 or above."),
   body("gender").optional().isIn(GENDERS).withMessage(`gender must be one of: ${GENDERS.join(", ")}.`),
   body("phone")
     .optional()
@@ -51,7 +54,13 @@ const updatePatientValidator = [
     .trim()
     .matches(NIC_PATTERN)
     .withMessage("nic must be a valid Sri Lankan NIC, for example 961234567V or 199612345678."),
-  body("dateOfBirth").optional({ values: "falsy" }).isISO8601().withMessage("dateOfBirth must be a valid ISO date."),
+  body("dateOfBirth")
+    .optional({ values: "falsy" })
+    .isISO8601()
+    .withMessage("dateOfBirth must be a valid ISO date.")
+    .bail()
+    .custom(isAtLeastAge(16))
+    .withMessage("patient must be 16 years old or above."),
   body("email").optional({ values: "falsy" }).isEmail().withMessage("email must be valid."),
   body("address").optional({ values: "null" }).trim().notEmpty().withMessage("address cannot be empty."),
   body("status").optional().isIn(STATUSES).withMessage(`status must be one of: ${STATUSES.join(", ")}.`),
@@ -65,7 +74,13 @@ const updateMyPatientValidator = [
     .withMessage("phone must be a valid Sri Lankan number, for example 0712345678 or +94712345678."),
   body("gender").optional().isIn(GENDERS).withMessage(`gender must be one of: ${GENDERS.join(", ")}.`),
   body("address").optional({ values: "null" }).trim().notEmpty().withMessage("address cannot be empty."),
-  body("dateOfBirth").optional({ values: "falsy" }).isISO8601().withMessage("dateOfBirth must be a valid ISO date."),
+  body("dateOfBirth")
+    .optional({ values: "falsy" })
+    .isISO8601()
+    .withMessage("dateOfBirth must be a valid ISO date.")
+    .bail()
+    .custom(isAtLeastAge(16))
+    .withMessage("patient must be 16 years old or above."),
   body("additionalAddresses")
     .optional()
     .isArray({ max: 3 })
@@ -91,6 +106,7 @@ const updateMyPatientValidator = [
 const patientQueryValidator = [
   query("gender").optional().isIn(GENDERS).withMessage(`gender must be one of: ${GENDERS.join(", ")}.`),
   query("status").optional().isIn(STATUSES).withMessage(`status must be one of: ${STATUSES.join(", ")}.`),
+  query("search").optional().trim().isLength({ max: 80 }).withMessage("search must be 80 characters or fewer."),
 ];
 
 module.exports = {

@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { AppScreen } from "@/components/ui/app-screen";
 import { StatePanel } from "@/components/ui/state-panel";
 import { AppColors } from "@/constants/design";
+import { useAuthSession } from "@/context/auth-context";
 import { getAuthToken } from "@/services/api-client";
 import { appointmentService } from "@/services/appointments";
 import { billingService } from "@/services/billing";
@@ -48,6 +49,7 @@ function isToday(value: unknown) {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { logout } = useAuthSession();
   const [dashboard, setDashboard] = useState<DashboardData>(EMPTY_DASHBOARD);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +106,11 @@ export default function HomeScreen() {
     }, [loadHomeData])
   );
 
+  async function switchAccount() {
+    await logout();
+    router.replace("/auth/login");
+  }
+
   return (
     <AppScreen scroll contentContainerStyle={styles.screen}>
       <PageHeader
@@ -116,7 +123,7 @@ export default function HomeScreen() {
       <View style={styles.actionRow}>
         <AppButton label="Book appointment" onPress={() => router.push("/appointments/new")} />
         <AppButton label="Add patient" onPress={() => router.push("/patients/new")} variant="secondary" />
-        <AppButton label="Staff login" onPress={() => router.push("/auth/login")} variant="secondary" />
+        <AppButton label="Switch account" onPress={() => void switchAccount()} variant="secondary" />
       </View>
 
       <View style={styles.sectionHeader}>

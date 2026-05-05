@@ -1,0 +1,25 @@
+{
+  "name": "clinic-appointment-system-api-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Library-based API tests for the Clinic Appointment System using Jest and Axios.",
+  "scripts": {
+    "test": "jest --runInBand",
+    "test:auth": "jest tests/auth.test.js --runInBand",
+    "test:patients": "jest tests/member_1_patients.test.js --runInBand",
+    "test:doctors": "jest tests/member_2_doctors.test.js --runInBand",
+    "test:appointments": "jest tests/member_3_appointments.test.js --runInBand",
+    "test:prescriptions": "jest tests/member_4_prescriptions.test.js --runInBand",
+    "test:billing": "jest tests/member_5_billing.test.js --runInBand",
+    "test:medical-records": "jest tests/member_6_medical_records.test.js --runInBand",
+    "test:upload": "jest tests/upload.test.js --runInBand",
+    "test:integration": "jest tests/integration.test.js --runInBand",
+    "test:system": "jest tests/system_flow.test.js --runInBand"
+  },
+  "devDependencies": {
+    "axios": "^1.13.2",
+    "dotenv": "^17.4.2",
+    "form-data": "^4.0.5",
+    "jest": "^30.2.0"
+  }
+}

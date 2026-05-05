@@ -1,6 +1,6 @@
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { PatientAuthGate } from "@/components/patient/patient-auth-gate";
@@ -33,6 +33,7 @@ export default function PatientBookAppointmentScreen() {
   const router = useRouter();
   const [doctors, setDoctors] = useState<CrudRecord[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
+  const [showDoctorOptions, setShowDoctorOptions] = useState(true);
   const [doctorSearch, setDoctorSearch] = useState("");
   const [appointmentDate, setAppointmentDate] = useState("");
   const [slots, setSlots] = useState<string[]>([]);
@@ -93,6 +94,13 @@ export default function PatientBookAppointmentScreen() {
     setAppointmentDate(toDatePayload(selectedDate));
   }
 
+  function selectDoctor(doctorId: string) {
+    setSelectedDoctorId(doctorId);
+    setSelectedSlot("");
+    setSlots([]);
+    setShowDoctorOptions(false);
+  }
+
   async function submit() {
     if (!selectedDoctorId || !appointmentDate || !selectedSlot || !reason.trim()) {
       setError("Doctor, date, time slot, and reason are required.");
@@ -125,6 +133,10 @@ export default function PatientBookAppointmentScreen() {
 
     return `${doctor.fullName || ""} ${doctor.specialization || ""}`.toLowerCase().includes(search);
   });
+  const selectedDoctor = useMemo(
+    () => doctors.find((doctor) => doctor._id === selectedDoctorId),
+    [doctors, selectedDoctorId]
+  );
 
   return (
     <PatientAuthGate>
@@ -133,28 +145,47 @@ export default function PatientBookAppointmentScreen() {
 
         <AppCard style={styles.card}>
           <Text style={styles.sectionTitle}>1. Select doctor</Text>
-          <AppInput
-            value={doctorSearch}
-            onChangeText={setDoctorSearch}
-            placeholder="Search by doctor name or specialization"
-            autoCapitalize="none"
-          />
-          {loadingDoctors ? <StatePanel loading message="Loading doctors..." /> : null}
-          {!loadingDoctors && filteredDoctors.length === 0 ? (
-            <Text style={styles.helperText}>No doctors match your search.</Text>
-          ) : null}
-          {filteredDoctors.map((doctor) => (
-            <Pressable
-              key={doctor._id}
-              onPress={() => setSelectedDoctorId(doctor._id)}
-            >
-              <AppCard muted={selectedDoctorId !== doctor._id} style={[styles.doctorCard, selectedDoctorId === doctor._id && styles.selectedDoctorCard]}>
-                <Text style={styles.doctorName}>{formatRef(doctor)}</Text>
-                <Text style={styles.helperText}>{formatValue(doctor.specialization)} | Rs. {formatValue(doctor.sessionFee)}</Text>
-                <Text style={styles.helperText}>{formatAvailability(doctor)}</Text>
-              </AppCard>
-            </Pressable>
-          ))}
+          {selectedDoctor && !showDoctorOptions ? (
+            <AppCard muted style={styles.selectedDoctorSummary}>
+              <Text style={styles.summaryLabel}>Selected doctor</Text>
+              <Text style={styles.doctorName}>{formatRef(selectedDoctor)}</Text>
+              <Text style={styles.helperText}>
+                {formatValue(selectedDoctor.specialization)} | Rs. {formatValue(selectedDoctor.sessionFee)}
+              </Text>
+              <Text style={styles.helperText}>{formatAvailability(selectedDoctor)}</Text>
+              <AppButton
+                label="Change doctor"
+                onPress={() => setShowDoctorOptions(true)}
+                variant="secondary"
+                style={styles.changeButton}
+              />
+            </AppCard>
+          ) : (
+            <>
+              <AppInput
+                value={doctorSearch}
+                onChangeText={setDoctorSearch}
+                placeholder="Search by doctor name or specialization"
+                autoCapitalize="none"
+              />
+              {loadingDoctors ? <StatePanel loading message="Loading doctors..." /> : null}
+              {!loadingDoctors && filteredDoctors.length === 0 ? (
+                <Text style={styles.helperText}>No doctors match your search.</Text>
+              ) : null}
+              {filteredDoctors.map((doctor) => (
+                <Pressable
+                  key={doctor._id}
+                  onPress={() => selectDoctor(doctor._id)}
+                >
+                  <AppCard muted={selectedDoctorId !== doctor._id} style={[styles.doctorCard, selectedDoctorId === doctor._id && styles.selectedDoctorCard]}>
+                    <Text style={styles.doctorName}>{formatRef(doctor)}</Text>
+                    <Text style={styles.helperText}>{formatValue(doctor.specialization)} | Rs. {formatValue(doctor.sessionFee)}</Text>
+                    <Text style={styles.helperText}>{formatAvailability(doctor)}</Text>
+                  </AppCard>
+                </Pressable>
+              ))}
+            </>
+          )}
         </AppCard>
 
         <AppCard style={styles.card}>
@@ -229,6 +260,21 @@ const styles = StyleSheet.create({
   selectedDoctorCard: {
     borderColor: AppColors.accent,
     borderWidth: 2,
+  },
+  selectedDoctorSummary: {
+    gap: 8,
+    padding: 14,
+  },
+  summaryLabel: {
+    color: AppColors.accent,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  changeButton: {
+    marginTop: 4,
+    paddingVertical: 11,
   },
   doctorName: {
     color: AppColors.text,

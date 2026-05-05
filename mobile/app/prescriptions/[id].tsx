@@ -18,7 +18,7 @@ import {
   uploadPrescriptionAttachment,
 } from "@/services/prescriptions";
 import { Prescription } from "@/types/prescription";
-import { formatDateTime, formatRef, getRefId } from "@/utils/format-record";
+import { formatDateTime, formatRef } from "@/utils/format-record";
 
 function formatDate(value?: string) {
   if (!value) {
@@ -119,10 +119,16 @@ export default function PrescriptionDetailsScreen() {
       return;
     }
 
-    Alert.alert("Delete draft prescription", "Only draft prescriptions can be deleted. Issued prescriptions are preserved for clinical history.", [
+    const isDraftPrescription = prescription?.status === "draft";
+    const title = isDraftPrescription ? "Delete draft prescription" : "Delete prescription";
+    const message = isDraftPrescription
+      ? "This draft prescription will be permanently deleted. Continue?"
+      : "Issued prescriptions cannot be deleted because they are preserved for clinical history.";
+
+    Alert.alert(title, message, [
       { text: "Cancel", style: "cancel" },
       {
-        text: "Delete draft",
+        text: "Delete",
         style: "destructive",
         onPress: async () => {
           try {
@@ -201,13 +207,9 @@ export default function PrescriptionDetailsScreen() {
       <AppCard style={styles.section}>
         <Text style={styles.sectionTitle}>References</Text>
         <Text style={styles.detailText}>Reference ID: {prescription.referenceId || "Not generated"}</Text>
-        <Text style={styles.detailText}>MongoDB ID: {prescription._id}</Text>
         <Text style={styles.detailText}>Appointment: {formatRef(prescription.appointmentId)}</Text>
-        <Text style={styles.detailText}>Appointment ID: {getRefId(prescription.appointmentId) || "Not set"}</Text>
         <Text style={styles.detailText}>Patient: {formatRef(prescription.patientId)}</Text>
-        <Text style={styles.detailText}>Patient ID: {getRefId(prescription.patientId) || "Not set"}</Text>
         <Text style={styles.detailText}>Doctor: {formatRef(prescription.doctorId)}</Text>
-        <Text style={styles.detailText}>Doctor ID: {getRefId(prescription.doctorId) || "Not set"}</Text>
       </AppCard>
 
       <AppCard style={styles.section}>
@@ -274,7 +276,7 @@ export default function PrescriptionDetailsScreen() {
           }
         />
         <AppButton
-          label={busyAction === "delete" ? "Deleting..." : "Delete draft prescription"}
+          label={busyAction === "delete" ? "Deleting..." : "Delete prescription"}
           onPress={handleDeletePrescription}
           variant="danger"
           busy={busyAction === "delete"}

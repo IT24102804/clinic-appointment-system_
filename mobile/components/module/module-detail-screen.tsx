@@ -180,10 +180,6 @@ export function ModuleDetailScreen<TRecord extends CrudRecord>({ config, service
           <Text style={styles.value}>{record.referenceId || "Not generated"}</Text>
         </View>
         <View style={styles.row}>
-          <Text style={styles.label}>MongoDB ID</Text>
-          <Text style={styles.value}>{record._id}</Text>
-        </View>
-        <View style={styles.row}>
           <Text style={styles.label}>Created at</Text>
           <Text style={styles.value}>{formatDateTime(record.createdAt) || "Not set"}</Text>
         </View>

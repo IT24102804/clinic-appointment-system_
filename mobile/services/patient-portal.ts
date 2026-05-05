@@ -75,12 +75,19 @@ export function getMyAppointment(id: string) {
   return request<CrudRecord>(`/api/patient/appointments/${id}`);
 }
 
-export function listMyPrescriptions() {
-  return request<CrudRecord[]>("/api/patient/prescriptions");
+export async function listMyPrescriptions() {
+  const prescriptions = await request<CrudRecord[]>("/api/patient/prescriptions");
+  return prescriptions.filter((prescription) => prescription.status !== "draft");
 }
 
-export function getMyPrescription(id: string) {
-  return request<CrudRecord>(`/api/patient/prescriptions/${id}`);
+export async function getMyPrescription(id: string) {
+  const prescription = await request<CrudRecord>(`/api/patient/prescriptions/${id}`);
+
+  if (prescription.status === "draft") {
+    throw new Error("Draft prescriptions are not available to patients.");
+  }
+
+  return prescription;
 }
 
 export function listMyBills() {

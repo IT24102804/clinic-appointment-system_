@@ -23,6 +23,12 @@ function toDatePayload(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+function getMinimumAgeDate(minAge: number) {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - minAge);
+  return date;
+}
+
 export default function PatientRegisterScreen() {
   const router = useRouter();
   const { registerPatient } = useAuthSession();
@@ -174,7 +180,13 @@ export default function PatientRegisterScreen() {
         <Text style={styles.helperText}>{form.dateOfBirth ? formatDate(form.dateOfBirth) : "No date selected"}</Text>
         <AppButton label="Pick date of birth" variant="secondary" onPress={() => setShowDatePicker(true)} />
         {showDatePicker ? (
-          <DateTimePicker value={form.dateOfBirth ? new Date(form.dateOfBirth) : new Date()} mode="date" display="default" onChange={handleDateChange} />
+          <DateTimePicker
+            value={form.dateOfBirth ? new Date(form.dateOfBirth) : getMinimumAgeDate(16)}
+            mode="date"
+            display="default"
+            maximumDate={getMinimumAgeDate(16)}
+            onChange={handleDateChange}
+          />
         ) : null}
 
         <AppInput value={form.address} onChangeText={(value) => updateField("address", value)} placeholder="Address" multiline />
