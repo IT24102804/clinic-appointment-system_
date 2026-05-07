@@ -18,11 +18,11 @@ router.use(authenticate);
 
 router
   .route("/me")
-  .get(patientController.getMyProfile)
-  .put(updateMyPatientValidator, validateRequest, patientController.updateMyProfile);
+  .get(authorizeRoles("patient"), patientController.getMyProfile)
+  .put(authorizeRoles("patient"), updateMyPatientValidator, validateRequest, patientController.updateMyProfile);
 
-router.delete("/me/additional-addresses/:index", patientController.deleteMyAdditionalAddress);
-router.delete("/me/emergency-contact", patientController.deleteMyEmergencyContact);
+router.delete("/me/additional-addresses/:index", authorizeRoles("patient"), patientController.deleteMyAdditionalAddress);
+router.delete("/me/emergency-contact", authorizeRoles("patient"), patientController.deleteMyEmergencyContact);
 
 router
   .route("/")

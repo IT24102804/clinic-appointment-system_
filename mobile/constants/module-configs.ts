@@ -28,8 +28,12 @@ export const moduleConfigs = {
       { key: "phone", label: "Phone", required: true },
       { key: "dateOfBirth", label: "Date of birth", required: true, type: "date" },
       { key: "nic", label: "NIC" },
-      { key: "email", label: "Email" },
+      { key: "email", label: "Email", required: true },
+      { key: "password", label: "Portal password", required: true, type: "password", visibleIn: ["create"] },
       { key: "address", label: "Address", required: true, type: "multiline" },
+      { key: "emergencyContact.name", label: "Emergency contact name" },
+      { key: "emergencyContact.phone", label: "Emergency contact phone" },
+      { key: "emergencyContact.relationship", label: "Emergency contact relationship" },
       {
         key: "status",
         label: "Status",
@@ -41,7 +45,20 @@ export const moduleConfigs = {
         ],
       },
     ],
-    defaultValues: { fullName: "", gender: "female", phone: "", dateOfBirth: "", nic: "", email: "", address: "", status: "active" },
+    defaultValues: {
+      fullName: "",
+      gender: "female",
+      phone: "",
+      dateOfBirth: "",
+      nic: "",
+      email: "",
+      password: "",
+      address: "",
+      "emergencyContact.name": "",
+      "emergencyContact.phone": "",
+      "emergencyContact.relationship": "",
+      status: "active",
+    },
     getCardTitle: (record) => formatValue(record.fullName),
     getCardSubtitle: (record) => `${formatValue(record.referenceId)} | ${formatValue(record.phone)} | ${formatValue(record.status)}`,
     getDetailRows: (record) => [
@@ -53,6 +70,19 @@ export const moduleConfigs = {
       { label: "NIC", value: formatValue(record.nic) },
       { label: "Email", value: formatValue(record.email) },
       { label: "Address", value: formatValue(record.address) },
+      {
+        label: "Emergency contact",
+        value:
+          record.emergencyContact && typeof record.emergencyContact === "object"
+            ? [
+                (record.emergencyContact as any).name,
+                (record.emergencyContact as any).phone,
+                (record.emergencyContact as any).relationship,
+              ]
+                .filter(Boolean)
+                .join(" | ") || "Not set"
+            : "Not set",
+      },
       { label: "Status", value: formatValue(record.status) },
     ],
   },

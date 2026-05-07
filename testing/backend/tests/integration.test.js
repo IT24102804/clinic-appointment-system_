@@ -114,7 +114,7 @@ describe("Integration testing - 6 backlog scenarios", () => {
     const appointmentRequest = await api.post("/api/patient/appointments").set(authHeader(patientToken)).send({
       doctorId: doctor._id,
       appointmentDate: nextWeekdayDate(1),
-      timeSlot: "02:30 PM",
+      timeSlot: "11:00 AM",
       reason: "Integration patient backlog request",
     });
     expect(appointmentRequest.status).toBe(201);

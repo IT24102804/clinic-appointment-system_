@@ -134,7 +134,7 @@ export default function PatientDocumentsScreen() {
           documents.map((document) => (
             <AppCard key={document._id} style={styles.card}>
               <Text style={styles.title}>{document.title}</Text>
-              <Text style={styles.meta}>Reference ID: {formatValue(document.referenceId)}</Text>
+              <Text style={styles.meta}>Document ID: {formatValue(document.referenceId)}</Text>
               <Text style={styles.meta}>File: {document.fileName}</Text>
               <Text style={styles.meta}>Status: {document.status}</Text>
               <Text style={styles.meta}>Uploaded: {formatDate(document.createdAt)}</Text>

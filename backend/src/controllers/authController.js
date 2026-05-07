@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 
 const User = require("../models/User");
 const Patient = require("../models/Patient");
@@ -121,31 +122,54 @@ async function registerPatient(req, res) {
   }
 
   const passwordHash = await bcrypt.hash(req.body.password, 12);
-  const user = await User.create({
-    name: req.body.fullName.trim(),
-    email,
-    passwordHash,
-    role: "patient",
-    status: "active",
-  });
+  const session = await mongoose.startSession();
+  let createdUserId;
 
-  await Patient.create({
-    userId: user._id,
-    fullName: req.body.fullName.trim(),
-    age,
-    gender: req.body.gender,
-    phone,
-    nic,
-    dateOfBirth,
-    email,
-    address: req.body.address.trim(),
-    emergencyContact: {
-      name: req.body.emergencyContact?.name?.trim() || "",
-      phone: req.body.emergencyContact?.phone?.trim() || "",
-      relationship: req.body.emergencyContact?.relationship?.trim() || "",
-    },
-    status: "active",
-  });
+  try {
+    await session.withTransaction(async () => {
+      const [user] = await User.create(
+        [
+          {
+            name: req.body.fullName.trim(),
+            email,
+            passwordHash,
+            role: "patient",
+            status: "active",
+          },
+        ],
+        { session }
+      );
+
+      await Patient.create(
+        [
+          {
+            userId: user._id,
+            fullName: req.body.fullName.trim(),
+            age,
+            gender: req.body.gender,
+            phone,
+            nic,
+            dateOfBirth,
+            email,
+            address: req.body.address.trim(),
+            emergencyContact: {
+              name: req.body.emergencyContact?.name?.trim() || "",
+              phone: req.body.emergencyContact?.phone?.trim() || "",
+              relationship: req.body.emergencyContact?.relationship?.trim() || "",
+            },
+            status: "active",
+          },
+        ],
+        { session }
+      );
+
+      createdUserId = user._id;
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  const user = await User.findById(createdUserId);
 
   return res.status(201).json({
     success: true,

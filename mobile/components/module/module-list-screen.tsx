@@ -1,18 +1,21 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { FlatList, RefreshControl, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "@/components/ui/app-button";
 import { AppCard } from "@/components/ui/app-card";
+import { AppInput } from "@/components/ui/app-input";
 import { AppScreen } from "@/components/ui/app-screen";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatePanel } from "@/components/ui/state-panel";
 import { AppColors } from "@/constants/design";
+import { useAuthSession } from "@/context/auth-context";
 import { getAuthToken } from "@/services/api-client";
 import { CrudRecord, ModuleConfig } from "@/types/crud";
+import { formatDate, formatValue } from "@/utils/format-record";
 
 type CrudService<TRecord extends CrudRecord> = {
-  list: () => Promise<TRecord[]>;
+  list: (filters?: { search?: string; gender?: string; status?: string }) => Promise<TRecord[]>;
 };
 
 type ModuleListScreenProps<TRecord extends CrudRecord> = {
@@ -22,11 +25,24 @@ type ModuleListScreenProps<TRecord extends CrudRecord> = {
 
 export function ModuleListScreen<TRecord extends CrudRecord>({ config, service }: ModuleListScreenProps<TRecord>) {
   const router = useRouter();
+  const { user } = useAuthSession();
   const [records, setRecords] = useState<TRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<Record<string, string>>({});
   const hasToken = Boolean(getAuthToken());
+  const isPatientList = config.key === "patients";
+  const isDoctorPatientList = isPatientList && user?.role === "doctor";
+  const showPatientFilters = isPatientList && !isDoctorPatientList;
+  const filterFields = useMemo(
+    () =>
+      showPatientFilters
+        ? config.fields.filter((field) => ["gender", "status"].includes(field.key) && field.options?.length)
+        : [],
+    [config.fields, showPatientFilters]
+  );
 
   const loadRecords = useCallback(
     async (showRefresh = false) => {
@@ -44,7 +60,15 @@ export function ModuleListScreen<TRecord extends CrudRecord>({ config, service }
           setLoading(true);
         }
 
-        const data = await service.list();
+        const data = await service.list(
+          config.key === "patients"
+            ? {
+                search: search.trim(),
+                gender: user?.role === "doctor" ? undefined : filters.gender,
+                status: user?.role === "doctor" ? undefined : filters.status,
+              }
+            : undefined
+        );
         setRecords(data);
         setError(null);
       } catch (loadError) {
@@ -54,7 +78,7 @@ export function ModuleListScreen<TRecord extends CrudRecord>({ config, service }
         setRefreshing(false);
       }
     },
-    [config.listTitle, service]
+    [config.key, config.listTitle, filters.gender, filters.status, search, service, user?.role]
   );
 
   useFocusEffect(
@@ -62,6 +86,47 @@ export function ModuleListScreen<TRecord extends CrudRecord>({ config, service }
       void loadRecords();
     }, [loadRecords])
   );
+
+  const filteredRecords = useMemo(() => {
+    if (!isPatientList) {
+      return records;
+    }
+
+    const searchValue = search.trim().toLowerCase();
+
+    return records.filter((record) => {
+      const matchesSearch =
+        !searchValue ||
+        (isDoctorPatientList
+          ? [record.fullName, record.phone, record.referenceId]
+          : [
+              config.getCardTitle(record),
+              config.getCardSubtitle(record),
+              record.referenceId,
+              record.nic,
+              record.email,
+              record.phone,
+            ])
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(searchValue);
+
+      const matchesFilters = Object.entries(filters).every(([key, value]) => {
+        if (!value || value === "all") {
+          return true;
+        }
+
+        return String(record[key] ?? "") === value;
+      });
+
+      return matchesSearch && matchesFilters;
+    });
+  }, [config, filters, isDoctorPatientList, isPatientList, records, search]);
+
+  function updateFilter(key: string, value: string) {
+    setFilters((current) => ({ ...current, [key]: value }));
+  }
 
   if (!hasToken) {
     return (
@@ -99,29 +164,83 @@ export function ModuleListScreen<TRecord extends CrudRecord>({ config, service }
           <StatePanel title="No records yet" message={`Create the first ${config.title.toLowerCase()} record.`} variant="empty" />
         </View>
       ) : (
-        <FlatList
-          data={records}
-          keyExtractor={(item) => item._id}
-          style={styles.list}
-          contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadRecords(true)} />}
-          renderItem={({ item }) => (
-            <AppCard style={styles.card}>
-              <Text style={styles.cardTitle}>{config.getCardTitle(item)}</Text>
-              <Text style={styles.cardSubtitle}>{config.getCardSubtitle(item)}</Text>
-              <AppButton
-                label="Open details"
-                variant="secondary"
-                onPress={() =>
-                  router.push({
-                    pathname: `${config.basePath}/[id]` as any,
-                    params: { id: item._id },
-                  })
-                }
+        <>
+          {isDoctorPatientList ? (
+            <AppCard style={styles.filterCard}>
+              <AppInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search patient name, phone, or PAT ID"
+                autoCapitalize="none"
               />
             </AppCard>
+          ) : null}
+          {showPatientFilters ? (
+            <AppCard style={styles.filterCard}>
+              <AppInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search name, NIC, phone, email"
+                autoCapitalize="none"
+              />
+              {filterFields.map((field) => (
+                <View key={field.key} style={styles.filterGroup}>
+                  <Text style={styles.filterLabel}>{field.label}</Text>
+                  <View style={styles.filterOptions}>
+                    <AppButton
+                      label="All"
+                      onPress={() => updateFilter(field.key, "all")}
+                      variant={!filters[field.key] || filters[field.key] === "all" ? "primary" : "secondary"}
+                      style={styles.filterButton}
+                    />
+                    {field.options?.map((option) => (
+                      <AppButton
+                        key={option.value}
+                        label={option.label}
+                        onPress={() => updateFilter(field.key, option.value)}
+                        variant={filters[field.key] === option.value ? "primary" : "secondary"}
+                        style={styles.filterButton}
+                      />
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </AppCard>
+          ) : null}
+          {filteredRecords.length === 0 ? (
+            <View style={styles.stateWrapper}>
+              <StatePanel title="No matching records" message="Adjust the filters to see more records." variant="empty" />
+            </View>
+          ) : (
+            <FlatList
+              data={filteredRecords}
+              keyExtractor={(item) => item._id}
+              style={styles.list}
+              contentContainerStyle={styles.listContent}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadRecords(true)} />}
+              renderItem={({ item }) => (
+                <AppCard style={styles.card}>
+                  <Text style={styles.cardTitle}>{config.getCardTitle(item)}</Text>
+                  <Text style={styles.cardSubtitle}>
+                    {isDoctorPatientList
+                      ? `${formatValue(item.referenceId)} | ${formatValue(item.phone)} | ${formatDate(item.dateOfBirth)} | Age ${formatValue(item.age)}`
+                      : config.getCardSubtitle(item)}
+                  </Text>
+                  <AppButton
+                    label="Open details"
+                    variant="secondary"
+                    onPress={() =>
+                      router.push({
+                        pathname: `${config.basePath}/[id]` as any,
+                        params: { id: item._id },
+                      })
+                    }
+                  />
+                </AppCard>
+              )}
+            />
           )}
-        />
+        </>
       )}
     </AppScreen>
   );
@@ -145,6 +264,27 @@ const styles = StyleSheet.create({
   card: {
     gap: 10,
     padding: 16,
+  },
+  filterCard: {
+    gap: 8,
+    padding: 10,
+  },
+  filterGroup: {
+    gap: 6,
+  },
+  filterLabel: {
+    color: AppColors.text,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  filterOptions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  filterButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   cardTitle: {
     color: AppColors.text,

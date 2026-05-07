@@ -44,7 +44,7 @@ export type FieldConfig = {
   key: string;
   label: string;
   required?: boolean;
-  type?: "text" | "number" | "date" | "time" | "multiline" | "select" | "reference";
+  type?: "text" | "number" | "date" | "time" | "multiline" | "select" | "reference" | "password";
   reference?: "patients" | "doctors" | "appointments";
   options?: FieldOption[];
   placeholder?: string;

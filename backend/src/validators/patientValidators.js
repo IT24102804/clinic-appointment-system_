@@ -1,5 +1,5 @@
 const { body, query } = require("express-validator");
-const { isAtLeastAge, NIC_PATTERN, PHONE_PATTERN } = require("../utils/validationPatterns");
+const { isAtLeastAge, NIC_PATTERN, PHONE_PATTERN, STRONG_PASSWORD_PATTERN } = require("../utils/validationPatterns");
 
 const GENDERS = ["male", "female", "other"];
 const STATUSES = ["active", "inactive"];
@@ -36,8 +36,25 @@ const createPatientValidator = [
     .bail()
     .custom(isAtLeastAge(16))
     .withMessage("patient must be 16 years old or above."),
-  body("email").optional({ values: "falsy" }).isEmail().withMessage("email must be valid."),
+  body("email").isEmail().withMessage("email must be valid."),
+  body("password")
+    .matches(STRONG_PASSWORD_PATTERN)
+    .withMessage("password must be at least 8 characters and include uppercase, lowercase, number, and special character."),
   body("address").trim().notEmpty().withMessage("address is required."),
+  body("emergencyContact")
+    .optional({ values: "null" })
+    .isObject()
+    .withMessage("emergencyContact must be an object.")
+    .bail()
+    .custom(hasCompleteEmergencyContact)
+    .withMessage("emergencyContact must include name, phone, and relationship when provided."),
+  body("emergencyContact.name").optional({ values: "falsy" }).trim(),
+  body("emergencyContact.phone")
+    .optional({ values: "falsy" })
+    .trim()
+    .matches(PHONE_PATTERN)
+    .withMessage("emergency contact phone must be a valid Sri Lankan number."),
+  body("emergencyContact.relationship").optional({ values: "falsy" }).trim(),
   body("status").optional().isIn(STATUSES).withMessage(`status must be one of: ${STATUSES.join(", ")}.`),
 ];
 
@@ -63,6 +80,20 @@ const updatePatientValidator = [
     .withMessage("patient must be 16 years old or above."),
   body("email").optional({ values: "falsy" }).isEmail().withMessage("email must be valid."),
   body("address").optional({ values: "null" }).trim().notEmpty().withMessage("address cannot be empty."),
+  body("emergencyContact")
+    .optional({ values: "null" })
+    .isObject()
+    .withMessage("emergencyContact must be an object.")
+    .bail()
+    .custom(hasCompleteEmergencyContact)
+    .withMessage("emergencyContact must include name, phone, and relationship when provided."),
+  body("emergencyContact.name").optional({ values: "falsy" }).trim(),
+  body("emergencyContact.phone")
+    .optional({ values: "falsy" })
+    .trim()
+    .matches(PHONE_PATTERN)
+    .withMessage("emergency contact phone must be a valid Sri Lankan number."),
+  body("emergencyContact.relationship").optional({ values: "falsy" }).trim(),
   body("status").optional().isIn(STATUSES).withMessage(`status must be one of: ${STATUSES.join(", ")}.`),
 ];
 

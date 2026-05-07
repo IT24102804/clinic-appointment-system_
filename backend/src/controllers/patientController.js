@@ -1,3 +1,6 @@
+const bcrypt = require("bcryptjs");
+const mongoose = require("mongoose");
+
 const Patient = require("../models/Patient");
 const User = require("../models/User");
 const Appointment = require("../models/Appointment");
@@ -39,26 +42,31 @@ function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function buildPatientListFilters(query) {
+const DOCTOR_PATIENT_SELECT = "referenceId fullName phone dateOfBirth age";
+
+function buildPatientListFilters(query, role) {
   const filters = {};
 
-  if (query.status) {
+  if (role !== "doctor" && query.status) {
     filters.status = query.status;
   }
 
-  if (query.gender) {
+  if (role !== "doctor" && query.gender) {
     filters.gender = query.gender;
   }
 
   if (query.search) {
     const searchRegex = new RegExp(escapeRegExp(query.search.trim()), "i");
-    filters.$or = [
-      { fullName: searchRegex },
-      { phone: searchRegex },
-      { nic: searchRegex },
-      { email: searchRegex },
-      { referenceId: searchRegex },
-    ];
+    filters.$or =
+      role === "doctor"
+        ? [{ fullName: searchRegex }, { phone: searchRegex }, { referenceId: searchRegex }]
+        : [
+            { fullName: searchRegex },
+            { phone: searchRegex },
+            { nic: searchRegex },
+            { email: searchRegex },
+            { referenceId: searchRegex },
+          ];
   }
 
   return filters;
@@ -97,7 +105,8 @@ async function getDoctorPatientIds(user, res) {
 }
 
 async function listPatients(req, res) {
-  const filters = buildPatientListFilters(req.query);
+  const filters = buildPatientListFilters(req.query, req.user.role);
+  let query = Patient.find(filters).sort({ createdAt: -1 });
 
   if (req.user.role === "doctor") {
     const patientIds = await getDoctorPatientIds(req.user, res);
@@ -107,9 +116,10 @@ async function listPatients(req, res) {
     }
 
     filters._id = { $in: patientIds };
+    query = Patient.find(filters).select(DOCTOR_PATIENT_SELECT).sort({ createdAt: -1 });
   }
 
-  const patients = await Patient.find(filters).sort({ createdAt: -1 }).lean();
+  const patients = await query.lean();
 
   return res.status(200).json({
     success: true,
@@ -131,7 +141,8 @@ async function getPatientById(req, res) {
     filters._id = { $in: patientIds.filter((patientId) => String(patientId) === String(req.params.id)) };
   }
 
-  const patient = await Patient.findOne(filters).lean();
+  const query = Patient.findOne(filters);
+  const patient = await (req.user.role === "doctor" ? query.select(DOCTOR_PATIENT_SELECT) : query).lean();
 
   if (!patient) {
     return res.status(404).json({
@@ -202,8 +213,57 @@ async function createPatient(req, res) {
     return unique;
   }
 
-  req.body = payload;
-  return crudController.create(req, res);
+  const existingUser = await User.findOne({ email: payload.email });
+
+  if (existingUser) {
+    return res.status(409).json({
+      success: false,
+      message: "A user with this email already exists.",
+    });
+  }
+
+  const passwordHash = await bcrypt.hash(req.body.password, 12);
+  const session = await mongoose.startSession();
+  let createdPatientId;
+
+  try {
+    await session.withTransaction(async () => {
+      const [user] = await User.create(
+        [
+          {
+            name: payload.fullName,
+            email: payload.email,
+            passwordHash,
+            role: "patient",
+            status: payload.status || "active",
+          },
+        ],
+        { session }
+      );
+
+      const [patient] = await Patient.create(
+        [
+          {
+            ...payload,
+            userId: user._id,
+          },
+        ],
+        { session }
+      );
+
+      createdPatientId = patient._id;
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  const created = await Patient.findById(createdPatientId).lean();
+
+  return res.status(201).json({
+    success: true,
+    message: "Patient created successfully.",
+    data: created,
+  });
 }
 
 async function updatePatient(req, res) {
@@ -229,11 +289,44 @@ async function updatePatient(req, res) {
     }
   });
 
+  if (payload.email) {
+    const userQuery = { email: payload.email };
+
+    if (patient.userId) {
+      userQuery._id = { $ne: patient.userId };
+    }
+
+    const existingUser = await User.findOne(userQuery).lean();
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "A user with this email already exists.",
+      });
+    }
+  }
+
   Object.assign(patient, payload);
   await patient.save();
 
-  if (payload.status && patient.userId) {
-    await User.findByIdAndUpdate(patient.userId, { status: patient.status });
+  if (patient.userId) {
+    const userUpdates = {};
+
+    if (payload.fullName) {
+      userUpdates.name = payload.fullName;
+    }
+
+    if (payload.email) {
+      userUpdates.email = payload.email;
+    }
+
+    if (payload.status) {
+      userUpdates.status = patient.status;
+    }
+
+    if (Object.keys(userUpdates).length > 0) {
+      await User.findByIdAndUpdate(patient.userId, userUpdates);
+    }
   }
 
   const updated = await Patient.findById(patient._id).lean();

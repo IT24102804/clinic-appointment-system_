@@ -10,6 +10,7 @@ function patientPayload(overrides = {}) {
     nic: `1999${String(suffix).slice(-8).padStart(8, "0")}`,
     dateOfBirth: "1996-05-15",
     email: `patient${suffix}@example.com`,
+    password: "Patient@1234",
     address: "No. 10, Test Road, Colombo",
     status: "active",
     ...overrides,

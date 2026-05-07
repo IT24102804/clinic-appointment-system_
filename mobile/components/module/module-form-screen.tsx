@@ -45,9 +45,34 @@ function coerceValue(field: FieldConfig, value: string) {
   return value;
 }
 
+function getNestedValue(record: CrudRecord | Record<string, unknown>, key: string) {
+  return key.split(".").reduce<unknown>((value, part) => {
+    if (!value || typeof value !== "object") {
+      return undefined;
+    }
+
+    return (value as Record<string, unknown>)[part];
+  }, record);
+}
+
+function setNestedValue(target: Record<string, unknown>, key: string, value: unknown) {
+  const parts = key.split(".");
+  let current = target;
+
+  parts.slice(0, -1).forEach((part) => {
+    if (!current[part] || typeof current[part] !== "object") {
+      current[part] = {};
+    }
+
+    current = current[part] as Record<string, unknown>;
+  });
+
+  current[parts[parts.length - 1]] = value;
+}
+
 function recordToForm(config: ModuleConfig, record: CrudRecord) {
   return config.fields.reduce<Record<string, string>>((values, field) => {
-    const rawValue = record[field.key];
+    const rawValue = getNestedValue(record, field.key);
     values[field.key] = field.type === "reference" ? getRefId(rawValue) : rawValue === undefined || rawValue === null ? "" : String(rawValue);
     return values;
   }, {});
@@ -457,6 +482,7 @@ export function ModuleFormScreen<TRecord extends CrudRecord>({ config, service, 
         placeholder={field.placeholder || field.label}
         keyboardType={field.type === "number" ? "numeric" : "default"}
         multiline={field.type === "multiline"}
+        secureTextEntry={field.type === "password"}
         autoCapitalize="none"
         editable={!field.readOnly}
       />
@@ -483,7 +509,14 @@ export function ModuleFormScreen<TRecord extends CrudRecord>({ config, service, 
     }
 
     const payload = visibleFields.reduce<Record<string, unknown>>((values, field) => {
-      values[field.key] = coerceValue(field, form[field.key]?.trim() ?? "");
+      const value = coerceValue(field, form[field.key]?.trim() ?? "");
+
+      if (field.key.includes(".")) {
+        setNestedValue(values, field.key, value);
+        return values;
+      }
+
+      values[field.key] = value;
       return values;
     }, {});
 

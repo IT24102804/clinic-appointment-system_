@@ -9,9 +9,10 @@ import { AppScreen } from "@/components/ui/app-screen";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatePanel } from "@/components/ui/state-panel";
 import { AppColors } from "@/constants/design";
+import { useAuthSession } from "@/context/auth-context";
 import { getAuthToken } from "@/services/api-client";
 import { CrudRecord, ModuleConfig, UploadAsset } from "@/types/crud";
-import { formatDateTime } from "@/utils/format-record";
+import { formatDate, formatDateTime, formatValue } from "@/utils/format-record";
 
 type CrudService<TRecord extends CrudRecord> = {
   get: (id: string) => Promise<TRecord>;
@@ -27,6 +28,7 @@ type ModuleDetailScreenProps<TRecord extends CrudRecord> = {
 
 export function ModuleDetailScreen<TRecord extends CrudRecord>({ config, service }: ModuleDetailScreenProps<TRecord>) {
   const router = useRouter();
+  const { user } = useAuthSession();
   const params = useLocalSearchParams<{ id?: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const [record, setRecord] = useState<TRecord | null>(null);
@@ -169,6 +171,15 @@ export function ModuleDetailScreen<TRecord extends CrudRecord>({ config, service
   const attachmentNameKey = config.attachmentNameKey || "attachmentName";
   const attachmentUrl = typeof record[attachmentUrlKey] === "string" ? record[attachmentUrlKey] : "";
   const attachmentName = typeof record[attachmentNameKey] === "string" ? record[attachmentNameKey] : "";
+  const isDoctorPatientDetail = config.key === "patients" && user?.role === "doctor";
+  const detailRows = isDoctorPatientDetail
+    ? [
+        { label: "Patient name", value: formatValue(record.fullName) },
+        { label: "Phone", value: formatValue(record.phone) },
+        { label: "Date of birth", value: formatDate(record.dateOfBirth) },
+        { label: "Age", value: formatValue(record.age) },
+      ]
+    : config.getDetailRows(record);
 
   return (
     <AppScreen scroll contentContainerStyle={styles.screen}>
@@ -179,15 +190,19 @@ export function ModuleDetailScreen<TRecord extends CrudRecord>({ config, service
           <Text style={styles.label}>Reference ID</Text>
           <Text style={styles.value}>{record.referenceId || "Not generated"}</Text>
         </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Created at</Text>
-          <Text style={styles.value}>{formatDateTime(record.createdAt) || "Not set"}</Text>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.label}>Last updated</Text>
-          <Text style={styles.value}>{formatDateTime(record.updatedAt) || "Not set"}</Text>
-        </View>
-        {config.getDetailRows(record).map((row) => (
+        {!isDoctorPatientDetail ? (
+          <>
+            <View style={styles.row}>
+              <Text style={styles.label}>Created at</Text>
+              <Text style={styles.value}>{formatDateTime(record.createdAt) || "Not set"}</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Last updated</Text>
+              <Text style={styles.value}>{formatDateTime(record.updatedAt) || "Not set"}</Text>
+            </View>
+          </>
+        ) : null}
+        {detailRows.map((row) => (
           <View key={row.label} style={styles.row}>
             <Text style={styles.label}>{row.label}</Text>
             <Text style={styles.value}>{row.value}</Text>
@@ -195,27 +210,33 @@ export function ModuleDetailScreen<TRecord extends CrudRecord>({ config, service
         ))}
       </AppCard>
 
-      <AppCard muted style={styles.card}>
-        <Text style={styles.sectionTitle}>{config.attachmentLabel || "Attachment"}</Text>
-        <Text style={styles.value}>{attachmentName || "No attachment uploaded yet."}</Text>
-        {attachmentUrl ? <AppButton label="Open attachment" variant="secondary" onPress={() => void Linking.openURL(attachmentUrl)} /> : null}
-        <AppButton label={attachmentUrl ? "Replace attachment" : "Upload attachment"} onPress={() => void uploadAttachment()} busy={busy} />
-        {attachmentUrl ? <AppButton label="Remove attachment" variant="danger" onPress={() => void removeAttachment()} busy={busy} /> : null}
-      </AppCard>
+      {!isDoctorPatientDetail ? (
+        <AppCard muted style={styles.card}>
+          <Text style={styles.sectionTitle}>{config.attachmentLabel || "Attachment"}</Text>
+          <Text style={styles.value}>{attachmentName || "No attachment uploaded yet."}</Text>
+          {attachmentUrl ? <AppButton label="Open attachment" variant="secondary" onPress={() => void Linking.openURL(attachmentUrl)} /> : null}
+          <AppButton label={attachmentUrl ? "Replace attachment" : "Upload attachment"} onPress={() => void uploadAttachment()} busy={busy} />
+          {attachmentUrl ? <AppButton label="Remove attachment" variant="danger" onPress={() => void removeAttachment()} busy={busy} /> : null}
+        </AppCard>
+      ) : null}
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      <AppButton
-        label="Edit record"
-        variant="secondary"
-        onPress={() =>
-          router.push({
-            pathname: `${config.basePath}/[id]/edit` as any,
-            params: { id: record._id },
-          })
-        }
-      />
-      <AppButton label="Delete record" variant="danger" onPress={() => void deleteRecord()} busy={busy} />
+      {!isDoctorPatientDetail ? (
+        <>
+          <AppButton
+            label="Edit record"
+            variant="secondary"
+            onPress={() =>
+              router.push({
+                pathname: `${config.basePath}/[id]/edit` as any,
+                params: { id: record._id },
+              })
+            }
+          />
+          <AppButton label="Delete record" variant="danger" onPress={() => void deleteRecord()} busy={busy} />
+        </>
+      ) : null}
     </AppScreen>
   );
 }
