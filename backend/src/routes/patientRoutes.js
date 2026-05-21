@@ -26,12 +26,12 @@ router.delete("/me/emergency-contact", authorizeRoles("patient"), patientControl
 
 router
   .route("/")
-  .get(authorizeRoles("admin", "receptionist", "doctor"), patientQueryValidator, validateRequest, patientController.list)
+  .get(authorizeRoles("admin", "receptionist"), patientQueryValidator, validateRequest, patientController.list)
   .post(authorizeRoles("admin", "receptionist"), createPatientValidator, validateRequest, patientController.create);
 
 router
   .route("/:id")
-  .get(authorizeRoles("admin", "receptionist", "doctor"), idParamValidator, validateRequest, patientController.getById)
+  .get(authorizeRoles("admin", "receptionist"), idParamValidator, validateRequest, patientController.getById)
   .put(authorizeRoles("admin", "receptionist"), idParamValidator, updatePatientValidator, validateRequest, patientController.update)
   .delete(authorizeRoles("admin"), idParamValidator, validateRequest, patientController.remove);
 

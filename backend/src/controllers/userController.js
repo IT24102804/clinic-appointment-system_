@@ -117,6 +117,26 @@ async function updateUser(req, res) {
   });
 }
 
+async function resetUserPassword(req, res) {
+  const user = await User.findById(req.params.id);
+
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: "User not found.",
+    });
+  }
+
+  user.passwordHash = await bcrypt.hash(req.body.password, 12);
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "User password updated successfully.",
+    data: serializeUser(user),
+  });
+}
+
 async function deactivateUser(req, res) {
   const user = await User.findById(req.params.id);
 
@@ -142,5 +162,6 @@ module.exports = {
   deactivateUser,
   getUser,
   listUsers,
+  resetPassword: resetUserPassword,
   updateUser,
 };

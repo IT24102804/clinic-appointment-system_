@@ -90,6 +90,10 @@ export function listUsers() {
   return request<User[]>("/api/users");
 }
 
+export function getUser(id: string) {
+  return request<User>(`/api/users/${id}`);
+}
+
 export function createUser(payload: Required<AuthPayload> & { status?: UserStatus }) {
   return request<User>("/api/users", {
     method: "POST",
@@ -101,6 +105,13 @@ export function updateUser(id: string, payload: Partial<Required<AuthPayload> & 
   return request<User>(`/api/users/${id}`, {
     method: "PUT",
     body: JSON.stringify(payload),
+  });
+}
+
+export function resetUserPassword(id: string, password: string) {
+  return request<User>(`/api/users/${id}/password`, {
+    method: "PUT",
+    body: JSON.stringify({ password }),
   });
 }
 

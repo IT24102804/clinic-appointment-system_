@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { StatePanel } from "@/components/ui/state-panel";
 import { AppColors } from "@/constants/design";
 import { getAuthToken } from "@/services/api-client";
-import { createUser, deactivateUser, listUsers, updateUser, User, UserRole } from "@/services/auth";
+import { createUser, deactivateUser, listUsers, User, UserRole } from "@/services/auth";
 
 const roleOptions: { label: string; value: UserRole }[] = [
   { label: "Admin", value: "admin" },
@@ -29,8 +29,6 @@ export default function UsersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [passwordUpdates, setPasswordUpdates] = useState<Record<string, string>>({});
-  const [passwordUserId, setPasswordUserId] = useState<string | null>(null);
   const hasToken = Boolean(getAuthToken());
 
   const loadUsers = useCallback(async (showRefresh = false) => {
@@ -110,28 +108,6 @@ export default function UsersScreen() {
     }
   }
 
-  async function changePassword(user: User) {
-    const nextPassword = passwordUpdates[user._id]?.trim();
-
-    if (!nextPassword) {
-      setError("Enter a new password before updating.");
-      return;
-    }
-
-    try {
-      setBusy(true);
-      setError(null);
-      await updateUser(user._id, { password: nextPassword });
-      setPasswordUpdates((current) => ({ ...current, [user._id]: "" }));
-      setPasswordUserId(null);
-      await loadUsers(true);
-    } catch (passwordError) {
-      setError(passwordError instanceof Error ? passwordError.message : "Unable to update password.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <AppScreen scroll contentContainerStyle={styles.screen}>
       <PageHeader eyebrow="Admin" title="Staff accounts" subtitle="Create and manage admin, doctor, and receptionist login accounts." />
@@ -167,35 +143,25 @@ export default function UsersScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadUsers(true)} />}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
-            <View style={styles.itemGroup}>
-              <AppCard style={styles.card}>
-                <Text style={styles.userName}>{item.name}</Text>
-                <Text style={styles.userMeta}>Reference ID: {item.referenceId || "Not generated"}</Text>
-                <Text style={styles.userMeta}>{item.email}</Text>
-                <Text style={styles.userMeta}>{item.role} | {item.status}</Text>
-                <AppButton
-                  label={passwordUserId === item._id ? "Cancel password change" : "Change password"}
-                  variant="secondary"
-                  onPress={() => setPasswordUserId((current) => (current === item._id ? null : item._id))}
-                />
-                {item.status === "active" ? (
-                  <AppButton label="Deactivate" variant="danger" onPress={() => void deactivate(item._id)} busy={busy} />
-                ) : null}
-              </AppCard>
-              {passwordUserId === item._id ? (
-                <AppCard muted style={styles.passwordCard}>
-                  <Text style={styles.sectionTitle}>Update password</Text>
-                  <Text style={styles.userMeta}>{item.name} | {item.email}</Text>
-                  <AppInput
-                    value={passwordUpdates[item._id] || ""}
-                    onChangeText={(value) => setPasswordUpdates((current) => ({ ...current, [item._id]: value }))}
-                    placeholder="New password"
-                    secureTextEntry
-                  />
-                  <AppButton label="Save new password" onPress={() => void changePassword(item)} busy={busy} />
-                </AppCard>
+            <AppCard style={styles.card}>
+              <Text style={styles.userName}>{item.name}</Text>
+              <Text style={styles.userMeta}>Reference ID: {item.referenceId || "Not generated"}</Text>
+              <Text style={styles.userMeta}>{item.email}</Text>
+              <Text style={styles.userMeta}>{item.role} | {item.status}</Text>
+              <AppButton
+                label="Update password"
+                variant="secondary"
+                onPress={() =>
+                  router.push({
+                    pathname: "/users/[id]/password",
+                    params: { id: item._id },
+                  })
+                }
+              />
+              {item.status === "active" ? (
+                <AppButton label="Deactivate" variant="danger" onPress={() => void deactivate(item._id)} busy={busy} />
               ) : null}
-            </View>
+            </AppCard>
           )}
         />
       )}
@@ -224,13 +190,6 @@ const styles = StyleSheet.create({
   optionButton: {
     paddingHorizontal: 12,
     paddingVertical: 10,
-  },
-  itemGroup: {
-    gap: 8,
-  },
-  passwordCard: {
-    gap: 8,
-    padding: 14,
   },
   errorText: {
     color: AppColors.danger,

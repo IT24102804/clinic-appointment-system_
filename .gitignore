@@ -1,2 +1,19 @@
-﻿mobile/.env
-.expo/
+# dependencies
+node_modules/
+
+# local environment files
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# generated test reports
+testing/backend/reports/
+testing/reports/*
+!testing/reports/
+!testing/reports/Clinic_Appointment_System_API_Test_Report.docx
+!testing/reports/deployment_evidence/
+!testing/reports/deployment_evidence/README.md
+
+# temporary files
+*.tmp

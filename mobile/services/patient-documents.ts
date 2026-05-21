@@ -9,6 +9,12 @@ export type StaffPatientDocument = CrudRecord & {
   fileUrl: string;
   status: string;
   reviewNotes?: string;
+  reviewedBy?: {
+    _id: string;
+    referenceId?: string;
+    name?: string;
+    role?: string;
+  } | null;
 };
 
 export function listPatientDocuments() {

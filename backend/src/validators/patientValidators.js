@@ -114,8 +114,8 @@ const updateMyPatientValidator = [
     .withMessage("patient must be 16 years old or above."),
   body("additionalAddresses")
     .optional()
-    .isArray({ max: 3 })
-    .withMessage("additionalAddresses must be an array with at most 3 addresses."),
+    .isArray({ max: 2 })
+    .withMessage("additionalAddresses must be an array with at most 2 addresses."),
   body("additionalAddresses.*.label").optional({ values: "falsy" }).trim(),
   body("additionalAddresses.*.address").trim().notEmpty().withMessage("additional address cannot be empty."),
   body("emergencyContact")

@@ -20,6 +20,12 @@ const patientSchema = new mongoose.Schema(
         },
       ],
       default: [],
+      validate: {
+        validator(value) {
+          return value.length <= 2;
+        },
+        message: "A patient can have at most 2 additional addresses.",
+      },
     },
     emergencyContact: {
       name: { type: String, trim: true, default: "" },

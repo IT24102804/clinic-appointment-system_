@@ -71,11 +71,18 @@ const updateUserValidator = [
   body("status").optional().isIn(STATUSES).withMessage(`status must be one of: ${STATUSES.join(", ")}.`),
 ];
 
+const resetUserPasswordValidator = [
+  body("password")
+    .matches(STRONG_PASSWORD_PATTERN)
+    .withMessage("password must be at least 8 characters and include uppercase, lowercase, number, and special character."),
+];
+
 module.exports = {
   ROLES,
   createUserValidator,
   loginValidator,
   patientRegisterValidator,
   registerValidator,
+  resetUserPasswordValidator,
   updateUserValidator,
 };

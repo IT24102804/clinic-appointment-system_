@@ -12,16 +12,27 @@ import { AppColors } from "@/constants/design";
 import { useAuthSession } from "@/context/auth-context";
 import { getAuthToken } from "@/services/api-client";
 import { CrudRecord, ModuleConfig } from "@/types/crud";
-import { formatDate, formatValue } from "@/utils/format-record";
 
 type CrudService<TRecord extends CrudRecord> = {
-  list: (filters?: { search?: string; gender?: string; status?: string }) => Promise<TRecord[]>;
+  list: () => Promise<TRecord[]>;
 };
 
 type ModuleListScreenProps<TRecord extends CrudRecord> = {
   config: ModuleConfig;
   service: CrudService<TRecord>;
 };
+
+function canCreateRecord(moduleKey: string, role?: string) {
+  if (role === "admin") {
+    return true;
+  }
+
+  if (role === "receptionist") {
+    return ["patients", "doctors", "appointments", "billing"].includes(moduleKey);
+  }
+
+  return role === "doctor" && moduleKey === "medical-records";
+}
 
 export function ModuleListScreen<TRecord extends CrudRecord>({ config, service }: ModuleListScreenProps<TRecord>) {
   const router = useRouter();
@@ -34,8 +45,7 @@ export function ModuleListScreen<TRecord extends CrudRecord>({ config, service }
   const [filters, setFilters] = useState<Record<string, string>>({});
   const hasToken = Boolean(getAuthToken());
   const isPatientList = config.key === "patients";
-  const isDoctorPatientList = isPatientList && user?.role === "doctor";
-  const showPatientFilters = isPatientList && !isDoctorPatientList;
+  const showPatientFilters = isPatientList;
   const filterFields = useMemo(
     () =>
       showPatientFilters
@@ -60,15 +70,7 @@ export function ModuleListScreen<TRecord extends CrudRecord>({ config, service }
           setLoading(true);
         }
 
-        const data = await service.list(
-          config.key === "patients"
-            ? {
-                search: search.trim(),
-                gender: user?.role === "doctor" ? undefined : filters.gender,
-                status: user?.role === "doctor" ? undefined : filters.status,
-              }
-            : undefined
-        );
+        const data = await service.list();
         setRecords(data);
         setError(null);
       } catch (loadError) {
@@ -78,7 +80,7 @@ export function ModuleListScreen<TRecord extends CrudRecord>({ config, service }
         setRefreshing(false);
       }
     },
-    [config.key, config.listTitle, filters.gender, filters.status, search, service, user?.role]
+    [config.listTitle, service]
   );
 
   useFocusEffect(
@@ -97,16 +99,14 @@ export function ModuleListScreen<TRecord extends CrudRecord>({ config, service }
     return records.filter((record) => {
       const matchesSearch =
         !searchValue ||
-        (isDoctorPatientList
-          ? [record.fullName, record.phone, record.referenceId]
-          : [
-              config.getCardTitle(record),
-              config.getCardSubtitle(record),
-              record.referenceId,
-              record.nic,
-              record.email,
-              record.phone,
-            ])
+        [
+          config.getCardTitle(record),
+          config.getCardSubtitle(record),
+          record.referenceId,
+          record.nic,
+          record.email,
+          record.phone,
+        ]
           .filter(Boolean)
           .join(" ")
           .toLowerCase()
@@ -122,7 +122,7 @@ export function ModuleListScreen<TRecord extends CrudRecord>({ config, service }
 
       return matchesSearch && matchesFilters;
     });
-  }, [config, filters, isDoctorPatientList, isPatientList, records, search]);
+  }, [config, filters, isPatientList, records, search]);
 
   function updateFilter(key: string, value: string) {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -149,7 +149,9 @@ export function ModuleListScreen<TRecord extends CrudRecord>({ config, service }
         subtitle={`Create, review, update, and delete ${config.listTitle.toLowerCase()} from the live API.`}
       />
 
-      <AppButton label={config.createTitle} onPress={() => router.push(`${config.basePath}/new` as any)} />
+      {canCreateRecord(config.key, user?.role) ? (
+        <AppButton label={config.createTitle} onPress={() => router.push(`${config.basePath}/new` as any)} />
+      ) : null}
 
       {loading ? (
         <View style={styles.stateWrapper}>
@@ -165,18 +167,11 @@ export function ModuleListScreen<TRecord extends CrudRecord>({ config, service }
         </View>
       ) : (
         <>
-          {isDoctorPatientList ? (
-            <AppCard style={styles.filterCard}>
-              <AppInput
-                value={search}
-                onChangeText={setSearch}
-                placeholder="Search patient name, phone, or PAT ID"
-                autoCapitalize="none"
-              />
-            </AppCard>
-          ) : null}
           {showPatientFilters ? (
             <AppCard style={styles.filterCard}>
+              <Text style={styles.resultCount}>
+                Showing {filteredRecords.length} of {records.length} patients
+              </Text>
               <AppInput
                 value={search}
                 onChangeText={setSearch}
@@ -221,11 +216,7 @@ export function ModuleListScreen<TRecord extends CrudRecord>({ config, service }
               renderItem={({ item }) => (
                 <AppCard style={styles.card}>
                   <Text style={styles.cardTitle}>{config.getCardTitle(item)}</Text>
-                  <Text style={styles.cardSubtitle}>
-                    {isDoctorPatientList
-                      ? `${formatValue(item.referenceId)} | ${formatValue(item.phone)} | ${formatDate(item.dateOfBirth)} | Age ${formatValue(item.age)}`
-                      : config.getCardSubtitle(item)}
-                  </Text>
+                  <Text style={styles.cardSubtitle}>{config.getCardSubtitle(item)}</Text>
                   <AppButton
                     label="Open details"
                     variant="secondary"
@@ -276,6 +267,11 @@ const styles = StyleSheet.create({
     color: AppColors.text,
     fontSize: 12,
     fontWeight: "800",
+  },
+  resultCount: {
+    color: AppColors.textMuted,
+    fontSize: 13,
+    fontWeight: "700",
   },
   filterOptions: {
     flexDirection: "row",

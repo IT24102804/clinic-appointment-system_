@@ -3,7 +3,7 @@ const express = require("express");
 const userController = require("../controllers/userController");
 const { authenticate, authorizeRoles } = require("../middleware/auth");
 const validateRequest = require("../middleware/validateRequest");
-const { createUserValidator, updateUserValidator } = require("../validators/authValidators");
+const { createUserValidator, resetUserPasswordValidator, updateUserValidator } = require("../validators/authValidators");
 const { idParamValidator } = require("../validators/sharedValidators");
 
 const router = express.Router();
@@ -14,6 +14,8 @@ router
   .route("/")
   .get(userController.listUsers)
   .post(createUserValidator, validateRequest, userController.createUser);
+
+router.put("/:id/password", idParamValidator, resetUserPasswordValidator, validateRequest, userController.resetPassword);
 
 router
   .route("/:id")

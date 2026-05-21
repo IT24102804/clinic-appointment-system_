@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { AppScreen } from "@/components/ui/app-screen";
 import { StatePanel } from "@/components/ui/state-panel";
 import { AppColors } from "@/constants/design";
+import { useAuthSession } from "@/context/auth-context";
 import { getAuthToken } from "@/services/api-client";
 import { listPrescriptions } from "@/services/prescriptions";
 import { Prescription } from "@/types/prescription";
@@ -42,6 +43,7 @@ function statusTone(status?: string) {
 
 export default function PrescriptionsScreen() {
   const router = useRouter();
+  const { user } = useAuthSession();
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -127,7 +129,9 @@ export default function PrescriptionsScreen() {
         </AppCard>
       </View>
 
-      <AppButton label="Create prescription" onPress={() => router.push("/prescriptions/new")} />
+      {user?.role === "admin" || user?.role === "doctor" ? (
+        <AppButton label="Create prescription" onPress={() => router.push("/prescriptions/new")} />
+      ) : null}
 
       {loading ? (
         <View style={styles.stateWrapper}>

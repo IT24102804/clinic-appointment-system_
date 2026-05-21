@@ -18,7 +18,7 @@ const patientDocumentSchema = new mongoose.Schema(
     fileResourceType: { type: String, default: "image" },
     status: {
       type: String,
-      enum: ["submitted", "reviewed", "rejected", "linked_to_record"],
+      enum: ["submitted", "reviewed", "rejected"],
       default: "submitted",
     },
     reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },

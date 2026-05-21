@@ -3,8 +3,6 @@ const mongoose = require("mongoose");
 
 const Patient = require("../models/Patient");
 const User = require("../models/User");
-const Appointment = require("../models/Appointment");
-const Doctor = require("../models/Doctor");
 const { createCrudController } = require("../utils/crudController");
 const { calculateAge } = require("../utils/validationPatterns");
 
@@ -42,83 +40,34 @@ function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-const DOCTOR_PATIENT_SELECT = "referenceId fullName phone dateOfBirth age";
-
-function buildPatientListFilters(query, role) {
+function buildPatientListFilters(query) {
   const filters = {};
 
-  if (role !== "doctor" && query.status) {
+  if (query.status) {
     filters.status = query.status;
   }
 
-  if (role !== "doctor" && query.gender) {
+  if (query.gender) {
     filters.gender = query.gender;
   }
 
   if (query.search) {
     const searchRegex = new RegExp(escapeRegExp(query.search.trim()), "i");
-    filters.$or =
-      role === "doctor"
-        ? [{ fullName: searchRegex }, { phone: searchRegex }, { referenceId: searchRegex }]
-        : [
-            { fullName: searchRegex },
-            { phone: searchRegex },
-            { nic: searchRegex },
-            { email: searchRegex },
-            { referenceId: searchRegex },
-          ];
+    filters.$or = [
+      { fullName: searchRegex },
+      { phone: searchRegex },
+      { nic: searchRegex },
+      { email: searchRegex },
+      { referenceId: searchRegex },
+    ];
   }
 
   return filters;
 }
 
-async function getLoggedInDoctor(user) {
-  if (user.role !== "doctor") {
-    return null;
-  }
-
-  const linkedDoctor = await Doctor.findOne({ userId: user._id });
-
-  if (linkedDoctor) {
-    return linkedDoctor;
-  }
-
-  if (!user.email) {
-    return null;
-  }
-
-  return Doctor.findOne({ email: user.email.toLowerCase().trim() });
-}
-
-async function getDoctorPatientIds(user, res) {
-  const doctor = await getLoggedInDoctor(user);
-
-  if (!doctor) {
-    return res.status(404).json({
-      success: false,
-      message: "Doctor profile is not linked to this account.",
-    });
-  }
-
-  const appointments = await Appointment.find({ doctorId: doctor._id }).distinct("patientId");
-  return appointments;
-}
-
 async function listPatients(req, res) {
-  const filters = buildPatientListFilters(req.query, req.user.role);
-  let query = Patient.find(filters).sort({ createdAt: -1 });
-
-  if (req.user.role === "doctor") {
-    const patientIds = await getDoctorPatientIds(req.user, res);
-
-    if (!Array.isArray(patientIds)) {
-      return patientIds;
-    }
-
-    filters._id = { $in: patientIds };
-    query = Patient.find(filters).select(DOCTOR_PATIENT_SELECT).sort({ createdAt: -1 });
-  }
-
+  const filters = buildPatientListFilters(req.query);
+  const query = Patient.find(filters).sort({ createdAt: -1 });
   const patients = await query.lean();
 
   return res.status(200).json({
@@ -131,18 +80,7 @@ async function listPatients(req, res) {
 async function getPatientById(req, res) {
   const filters = { _id: req.params.id };
 
-  if (req.user.role === "doctor") {
-    const patientIds = await getDoctorPatientIds(req.user, res);
-
-    if (!Array.isArray(patientIds)) {
-      return patientIds;
-    }
-
-    filters._id = { $in: patientIds.filter((patientId) => String(patientId) === String(req.params.id)) };
-  }
-
-  const query = Patient.findOne(filters);
-  const patient = await (req.user.role === "doctor" ? query.select(DOCTOR_PATIENT_SELECT) : query).lean();
+  const patient = await Patient.findOne(filters).lean();
 
   if (!patient) {
     return res.status(404).json({
@@ -207,6 +145,14 @@ async function ensureUniquePatient(payload, excludeId, res) {
 
 async function createPatient(req, res) {
   const payload = buildPayload(req.body);
+
+  if (req.user.role !== "admin" && payload.status !== undefined) {
+    return res.status(403).json({
+      success: false,
+      message: "Only admins can set patient status.",
+    });
+  }
+
   const unique = await ensureUniquePatient(payload, null, res);
 
   if (unique !== true) {
@@ -268,6 +214,14 @@ async function createPatient(req, res) {
 
 async function updatePatient(req, res) {
   const payload = buildPayload(req.body);
+
+  if (req.user.role !== "admin" && payload.status !== undefined) {
+    return res.status(403).json({
+      success: false,
+      message: "Only admins can update patient status.",
+    });
+  }
+
   const unique = await ensureUniquePatient(payload, req.params.id, res);
 
   if (unique !== true) {

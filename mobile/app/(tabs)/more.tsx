@@ -47,6 +47,7 @@ const adminModules = [
     owner: "Access control",
     description: "Manage admin, doctor, and receptionist login access.",
     route: "/users",
+    adminOnly: true,
   },
 ] as const;
 
@@ -93,7 +94,7 @@ export default function MoreScreen() {
         <Text style={styles.sectionTitle}>Operations</Text>
         <Text style={styles.sectionSubtitle}>Billing, medical history, and staff access for daily clinic work.</Text>
         <View style={styles.list}>
-          {adminModules.map((moduleLink) => (
+          {adminModules.filter((moduleLink) => !moduleLink.adminOnly || user?.role === "admin").map((moduleLink) => (
             <Pressable key={moduleLink.title} onPress={() => router.push(moduleLink.route as any)}>
               <AppCard style={styles.card}>
                 <Text style={styles.owner}>{moduleLink.owner}</Text>

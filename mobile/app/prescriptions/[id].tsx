@@ -10,6 +10,7 @@ import { AppScreen } from "@/components/ui/app-screen";
 import { StatePanel } from "@/components/ui/state-panel";
 import { toApiUrl } from "@/constants/api";
 import { AppColors } from "@/constants/design";
+import { useAuthSession } from "@/context/auth-context";
 import { getAuthToken } from "@/services/api-client";
 import {
   deletePrescription,
@@ -30,12 +31,14 @@ function formatDate(value?: string) {
 
 export default function PrescriptionDetailsScreen() {
   const router = useRouter();
+  const { user } = useAuthSession();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [prescription, setPrescription] = useState<Prescription | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const hasToken = Boolean(getAuthToken());
+  const canWritePrescription = user?.role === "admin" || user?.role === "doctor";
 
   const absoluteAttachmentUrl = useMemo(() => {
     if (!prescription?.attachmentUrl) {
@@ -243,45 +246,51 @@ export default function PrescriptionDetailsScreen() {
             <Text style={styles.detailText}>Saved file: {prescription.attachmentName || "Attachment"}</Text>
             <View style={styles.inlineActions}>
               <AppButton label="Open file" onPress={() => void Linking.openURL(absoluteAttachmentUrl)} variant="secondary" style={styles.inlineButton} />
-              <AppButton
-                label={busyAction === "remove-attachment" ? "Removing..." : "Remove file"}
-                onPress={() => void handleDeleteAttachment()}
-                variant="danger"
-                busy={busyAction === "remove-attachment"}
-                style={styles.inlineButton}
-              />
+              {canWritePrescription ? (
+                <AppButton
+                  label={busyAction === "remove-attachment" ? "Removing..." : "Remove file"}
+                  onPress={() => void handleDeleteAttachment()}
+                  variant="danger"
+                  busy={busyAction === "remove-attachment"}
+                  style={styles.inlineButton}
+                />
+              ) : null}
             </View>
           </>
         ) : (
           <>
             <Text style={styles.detailText}>No attachment uploaded yet.</Text>
-            <AppButton
-              label={busyAction === "upload" ? "Uploading..." : "Upload PDF or image"}
-              onPress={() => void handleUploadAttachment()}
-              variant="secondary"
-              busy={busyAction === "upload"}
-            />
+            {canWritePrescription ? (
+              <AppButton
+                label={busyAction === "upload" ? "Uploading..." : "Upload PDF or image"}
+                onPress={() => void handleUploadAttachment()}
+                variant="secondary"
+                busy={busyAction === "upload"}
+              />
+            ) : null}
           </>
         )}
       </AppCard>
 
-      <View style={styles.footerActions}>
-        <AppButton
-          label="Edit prescription"
-          onPress={() =>
-            router.push({
-              pathname: "/prescriptions/[id]/edit",
-              params: { id },
-            })
-          }
-        />
-        <AppButton
-          label={busyAction === "delete" ? "Deleting..." : "Delete prescription"}
-          onPress={handleDeletePrescription}
-          variant="danger"
-          busy={busyAction === "delete"}
-        />
-      </View>
+      {canWritePrescription ? (
+        <View style={styles.footerActions}>
+          <AppButton
+            label="Edit prescription"
+            onPress={() =>
+              router.push({
+                pathname: "/prescriptions/[id]/edit",
+                params: { id },
+              })
+            }
+          />
+          <AppButton
+            label={busyAction === "delete" ? "Deleting..." : "Delete prescription"}
+            onPress={handleDeletePrescription}
+            variant="danger"
+            busy={busyAction === "delete"}
+          />
+        </View>
+      ) : null}
     </AppScreen>
   );
 }

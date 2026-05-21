@@ -10,6 +10,7 @@ import { AppScreen } from "@/components/ui/app-screen";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatePanel } from "@/components/ui/state-panel";
 import { AppColors } from "@/constants/design";
+import { useAuthSession } from "@/context/auth-context";
 import { getAuthToken } from "@/services/api-client";
 import { appointmentService } from "@/services/appointments";
 import { doctorService } from "@/services/doctors";
@@ -155,6 +156,7 @@ function getDoctorSessionFee(appointment: CrudRecord) {
 
 export function ModuleFormScreen<TRecord extends CrudRecord>({ config, service, mode }: ModuleFormScreenProps<TRecord>) {
   const router = useRouter();
+  const { user } = useAuthSession();
   const params = useLocalSearchParams<{ id?: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const [form, setForm] = useState<Record<string, string>>(config.defaultValues);
@@ -172,8 +174,15 @@ export function ModuleFormScreen<TRecord extends CrudRecord>({ config, service, 
   const [error, setError] = useState<string | null>(null);
   const hasToken = Boolean(getAuthToken());
   const visibleFields = useMemo(
-    () => config.fields.filter((field) => !field.visibleIn || field.visibleIn.includes(mode)),
-    [config.fields, mode]
+    () =>
+      config.fields.filter((field) => {
+        if (config.key === "patients" && field.key === "status" && user?.role !== "admin") {
+          return false;
+        }
+
+        return !field.visibleIn || field.visibleIn.includes(mode);
+      }),
+    [config.fields, config.key, mode, user?.role]
   );
 
   useEffect(() => {

@@ -85,6 +85,11 @@ export default function PatientProfileScreen() {
   }
 
   function addAddress() {
+    if (additionalAddresses.length >= 2) {
+      setError("You can add up to 2 additional addresses.");
+      return;
+    }
+
     if (!newAddressValue.trim()) {
       setError("Additional address cannot be empty.");
       return;
@@ -168,6 +173,7 @@ export default function PatientProfileScreen() {
               <AppButton label="Delete emergency contact" variant="secondary" onPress={() => void clearEmergencyContact()} />
 
               <Text style={styles.title}>Additional addresses</Text>
+              <Text style={styles.meta}>{additionalAddresses.length} of 2 additional addresses added.</Text>
               {additionalAddresses.length === 0 ? (
                 <Text style={styles.meta}>No additional addresses added.</Text>
               ) : (
@@ -181,9 +187,13 @@ export default function PatientProfileScreen() {
                   </View>
                 ))
               )}
-              <AppInput value={newAddressLabel} onChangeText={setNewAddressLabel} placeholder="Address label, for example Home" />
-              <AppInput value={newAddressValue} onChangeText={setNewAddressValue} placeholder="Additional address" multiline />
-              <AppButton label="Add address" variant="secondary" onPress={addAddress} />
+              {additionalAddresses.length < 2 ? (
+                <>
+                  <AppInput value={newAddressLabel} onChangeText={setNewAddressLabel} placeholder="Address label, for example Home" />
+                  <AppInput value={newAddressValue} onChangeText={setNewAddressValue} placeholder="Additional address" multiline />
+                  <AppButton label="Add address" variant="secondary" onPress={addAddress} />
+                </>
+              ) : null}
 
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
               <AppButton label="Save profile" onPress={() => void saveProfile()} busy={saving} />

@@ -14,7 +14,23 @@ import { getAuthToken } from "@/services/api-client";
 import { listPatientDocuments, reviewPatientDocument, StaffPatientDocument } from "@/services/patient-documents";
 import { formatDate, formatRef, formatValue } from "@/utils/format-record";
 
-const statusOptions = ["reviewed", "rejected", "linked_to_record"];
+const statusOptions = ["reviewed", "rejected"];
+
+function statusLabel(status: string) {
+  return status === "reviewed" ? "Reviewed" : status === "rejected" ? "Rejected" : "Submitted";
+}
+
+function statusStyle(status: string) {
+  if (status === "reviewed") {
+    return styles.statusReviewed;
+  }
+
+  if (status === "rejected") {
+    return styles.statusRejected;
+  }
+
+  return styles.statusSubmitted;
+}
 
 export default function StaffPatientDocumentsScreen() {
   const router = useRouter();
@@ -88,33 +104,46 @@ export default function StaffPatientDocumentsScreen() {
       ) : (
         documents.map((document) => (
           <AppCard key={document._id} style={styles.card}>
-            <Text style={styles.title}>{document.title}</Text>
+            <View style={styles.cardHeader}>
+              <Text style={styles.title}>{document.title}</Text>
+              <View style={[styles.statusBadge, statusStyle(document.status)]}>
+                <Text style={styles.statusText}>{statusLabel(document.status)}</Text>
+              </View>
+            </View>
             <Text style={styles.meta}>Document ID: {formatValue(document.referenceId)}</Text>
             <Text style={styles.meta}>Patient: {formatRef(document.patientId)}</Text>
             <Text style={styles.meta}>File: {document.fileName}</Text>
             <Text style={styles.meta}>Type: {document.documentType}</Text>
-            <Text style={styles.meta}>Status: {document.status}</Text>
             <Text style={styles.meta}>Uploaded: {formatDate(document.createdAt)}</Text>
             {document.reviewNotes ? <Text style={styles.meta}>Review notes: {document.reviewNotes}</Text> : null}
+            {document.reviewedBy ? (
+              <Text style={styles.meta}>Reviewed by: {formatRef(document.reviewedBy)}</Text>
+            ) : null}
             <AppButton label="Open file" variant="secondary" onPress={() => void Linking.openURL(document.fileUrl)} />
-            <AppInput
-              value={reviewNotes[document._id] || ""}
-              onChangeText={(value) => setReviewNotes((current) => ({ ...current, [document._id]: value }))}
-              placeholder="Review notes"
-              multiline
-            />
-            <View style={styles.options}>
-              {statusOptions.map((status) => (
-                <AppButton
-                  key={status}
-                  label={status.replaceAll("_", " ")}
-                  onPress={() => void review(document._id, status)}
-                  variant="secondary"
-                  busy={busy}
-                  style={styles.optionButton}
+            {document.status === "submitted" ? (
+              <>
+                <AppInput
+                  value={reviewNotes[document._id] || ""}
+                  onChangeText={(value) => setReviewNotes((current) => ({ ...current, [document._id]: value }))}
+                  placeholder="Review notes"
+                  multiline
                 />
-              ))}
-            </View>
+                <View style={styles.options}>
+                  {statusOptions.map((status) => (
+                    <AppButton
+                      key={status}
+                      label={status === "reviewed" ? "Accept document" : "Reject document"}
+                      onPress={() => void review(document._id, status)}
+                      variant={status === "reviewed" ? "primary" : "danger"}
+                      busy={busy}
+                      style={styles.optionButton}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : (
+              <Text style={styles.reviewComplete}>Review completed. This submission is now locked for staff tracking.</Text>
+            )}
           </AppCard>
         ))
       )}
@@ -133,14 +162,47 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 16,
   },
+  cardHeader: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    justifyContent: "space-between",
+  },
   title: {
+    flex: 1,
     color: AppColors.text,
     fontSize: 18,
+    fontWeight: "800",
+  },
+  statusBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  statusSubmitted: {
+    backgroundColor: AppColors.warningSoft,
+  },
+  statusReviewed: {
+    backgroundColor: AppColors.successSoft,
+  },
+  statusRejected: {
+    backgroundColor: AppColors.warningSoft,
+  },
+  statusText: {
+    color: AppColors.text,
+    fontSize: 12,
     fontWeight: "800",
   },
   meta: {
     color: AppColors.textMuted,
     fontSize: 14,
+    lineHeight: 20,
+  },
+  reviewComplete: {
+    color: AppColors.text,
+    fontSize: 14,
+    fontWeight: "700",
     lineHeight: 20,
   },
   options: {

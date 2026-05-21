@@ -1,6 +1,6 @@
 const { body, param, query } = require("express-validator");
 
-const DOCUMENT_STATUSES = ["submitted", "reviewed", "rejected", "linked_to_record"];
+const DOCUMENT_STATUSES = ["submitted", "reviewed", "rejected"];
 const DOCUMENT_TYPES = ["lab_report", "previous_prescription", "scan_report", "referral_letter", "other"];
 
 const patientAppointmentValidator = [
